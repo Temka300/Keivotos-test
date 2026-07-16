@@ -7,10 +7,6 @@ module, **Waifu-Hoard**, is a Danbooru-inspired desktop gallery for browsing,
 tagging, collecting, reviewing, and organizing an existing local image and
 video library.
 
-V1.0.0 turns the project into a reproducible application rather than a folder
-that only works on its original development machine: source launch is locked,
-writable data lives outside the checkout, and Windows portable builds have a
-documented and automated path.
 
 ## What Waifu-Hoard already does
 
@@ -42,7 +38,7 @@ databases, sidecars, thumbnails, work files, and backups live under
 the Windows-known `Documents\Keivotos` location, so redirected Documents paths
 are respected and replacing the application folder does not replace your
 library state.
-
+`
 ### From a source clone or source ZIP
 
 Install [uv](https://docs.astral.sh/uv/) and current Node.js, then run:
@@ -58,7 +54,7 @@ Keivotos icon while retaining startup progress and error output. See
 [`docs/build/source.md`](docs/build/source.md) for the manual commands and
 development mode.
 
-To open the same source run from trusted phones, tablets, or other computers on
+To open the same source run from trusted phones, tablets, or other computers on`
 the same private network:
 
 ```powershell
@@ -145,7 +141,6 @@ archives remain planned directions, not promises bundled into V1.0.0. See
 - Keivotos is local-first and does not introduce accounts or cloud sync.
 - Destructive library operations show their scope; external originals are not
   part of metadata backup/restore.
-- Do not commit `data/`, `_gallery-dl/`, credentials, databases, or personal media.
 - Keivotos source is Apache-2.0. Portable distributions include third-party
   license material; gallery-dl and FFmpeg remain separately invoked GPL tools.
 
