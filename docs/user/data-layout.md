@@ -1,0 +1,61 @@
+# Data layout and ownership
+
+Keivotos separates replaceable application files from writable library state.
+
+```text
+Documents/Keivotos/
+├── config.json
+├── logs/
+├── modules/waifu-hoard/
+│   ├── library/
+│   ├── danbooru.sqlite
+│   ├── user.sqlite
+│   ├── sidecars/
+│   ├── thumbnails/
+│   ├── artist_profile_archive/
+│   ├── local_recovery/
+│   └── gallery-dl/
+└── backups/waifu-hoard/
+```
+
+- `user.sqlite` contains irreplaceable local choices such as favorites,
+  collections, user tags, followed artists, and registered folders.
+- `danbooru.sqlite` is the searchable index and can be reconstructed from media
+  and sidecars.
+- `sidecars/` stores durable metadata by stable registered-root identity.
+- `thumbnails/` is derived cache and can be cleared.
+- `gallery-dl/` contains acquisition work files and archives.
+- `backups/waifu-hoard/` is only the default destination for backups you create.
+- `logs/waifu-hoard-runtime-YYYY-MM-DD_HH-MM-SS-pPID.log` records startup,
+  mutations, failed reads, background work, warnings, and errors.
+- `logs/waifu-hoard-access-YYYY-MM-DD_HH-MM-SS-pPID.log` records every local
+  HTTP method, path, and status. Each stream rolls over at 5 MB with five
+  chunks, and retains its 30 most recent files.
+
+`Documents` means the location returned by the Windows Known Folder API. If
+Windows redirects Documents to OneDrive, another drive, or an organization-
+managed path, Keivotos follows that real location instead of constructing
+`C:\Users\<name>\Documents` manually. Settings shows the exact resolved paths.
+
+The module directory is itself the default metadata root; there is no extra
+`metadata/` wrapper. If an earlier V1.0.0 test build created that wrapper,
+startup moves its contents up one level. It never overwrites a different file:
+a conflict stops startup and leaves both copies for manual review.
+
+External library folders remain in place. Registration stores their path and
+indexes their content; it does not move the originals.
+Two roots may have the same final folder name because Keivotos identifies each
+one with a stable root ID. If a root is moved to another drive, use
+Settings → Library → Relocate; this updates index/user references while keeping
+the same sidecar namespace. Keivotos does not move the image files for you.
+
+Manual `.whbackup` bundles may contain the selected SQLite databases and
+sidecar/profile archives. They never contain original media, thumbnails, or
+the DPAPI credential file.
+
+## Overrides
+
+Settings that need persistence are written to `Documents\Keivotos\config.json`.
+The repository `config.json` is a default template and is not rewritten at
+runtime. Developers and CI can set `KEIVOTOS_HOME` to redirect the complete
+default layout to a temporary location.
