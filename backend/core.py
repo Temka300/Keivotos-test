@@ -1025,6 +1025,7 @@ async def restrict_local_browser_access(request: Request, call_next):
         scheme=request.url.scheme,
         origin_header=request.headers.get("origin"),
         fetch_site_header=request.headers.get("sec-fetch-site"),
+        lan_host=os.environ.get("KEIVOTOS_LAN_HOST"),
     )
     if rejection is not None:
         status_code, detail = rejection

@@ -1,4 +1,4 @@
-"""Loopback host and browser-origin checks for the local HTTP API."""
+"""Host and browser-origin checks for the local HTTP API."""
 
 from __future__ import annotations
 
@@ -26,11 +26,18 @@ def validate_local_browser_request(
     scheme: str,
     origin_header: str | None,
     fetch_site_header: str | None = None,
+    lan_host: str | None = None,
 ) -> tuple[int, str] | None:
-    """Reject non-loopback hosts and browser requests from another origin."""
+    """Reject inactive hosts and browser requests from another origin."""
+    allowed_hosts = LOOPBACK_HOSTS | ({lan_host.casefold()} if lan_host else set())
     request_origin = _host_and_port(host_header, scheme)
-    if request_origin is None or request_origin[0] not in LOOPBACK_HOSTS:
-        return 400, "Keivotos accepts requests only through the local loopback address"
+    if request_origin is None or request_origin[0] not in allowed_hosts:
+        detail = (
+            "Keivotos accepts requests only through its active local addresses"
+            if lan_host
+            else "Keivotos accepts requests only through the local loopback address"
+        )
+        return 400, detail
 
     # Foreign subresources can omit Origin while still declaring that the
     # browser initiated them from another site.
@@ -50,7 +57,7 @@ def validate_local_browser_request(
         return 403, "Cross-origin browser requests are not allowed"
 
     browser_origin = _host_and_port(origin_header, parsed_origin.scheme)
-    if browser_origin is None or browser_origin[0] not in LOOPBACK_HOSTS:
+    if browser_origin is None or browser_origin[0] not in allowed_hosts:
         return 403, "Cross-origin browser requests are not allowed"
     if parsed_origin.scheme != scheme or browser_origin != request_origin:
         return 403, "Cross-origin browser requests are not allowed"

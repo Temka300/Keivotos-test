@@ -46,7 +46,7 @@ if not exist "frontend\dist\index.html" (
     popd
 )
 
-echo [RUN] Starting Keivotos - Waifu-Hoard at http://localhost:52325/
+echo [RUN] Starting Keivotos - Waifu-Hoard...
 ".venv\Scripts\python.exe" app.py %*
 
 if errorlevel 1 (

@@ -98,6 +98,18 @@ class HomeDiscoveryTests(unittest.TestCase):
             self.assertIn(fragment, source)
         self.assertNotIn("local paths</span>", source)
 
+    def test_lane_keyboard_focus_pauses_without_sticking_after_detail(self) -> None:
+        source = (ROOT / "frontend" / "src" / "components" / "HomeView.svelte").read_text(encoding="utf-8")
+
+        self.assertIn(".home-lane:focus-within .home-lane-track", source)
+        self.assertIn("activeElement.closest('.home-lane')", source)
+        self.assertIn("activeElement.blur()", source)
+
+        open_image = source.index("function openImage(item: HomeImageRailItem)")
+        release_focus = source.index("releaseLaneFocusPause();", open_image)
+        select_image = source.index("selectedImageId.set(item.id);", open_image)
+        self.assertLess(release_focus, select_image)
+
 
 if __name__ == "__main__":
     unittest.main()

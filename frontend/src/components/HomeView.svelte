@@ -464,7 +464,15 @@
     if (tag) useTag(tag);
   }
 
+  function releaseLaneFocusPause() {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && activeElement.closest('.home-lane')) {
+      activeElement.blur();
+    }
+  }
+
   function openImage(item: HomeImageRailItem) {
+    releaseLaneFocusPause();
     selectedImageId.set(item.id);
   }
 
@@ -1132,7 +1140,8 @@
     animation-duration: 96s;
   }
 
-  .home-lane:hover .home-lane-track {
+  .home-lane:hover .home-lane-track,
+  .home-lane:focus-within .home-lane-track {
     animation-play-state: paused;
   }
 

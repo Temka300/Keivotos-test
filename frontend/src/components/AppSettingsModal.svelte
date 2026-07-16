@@ -618,7 +618,10 @@
     if (!target) return;
     document.querySelector('.setting-flash')?.classList.remove('setting-flash');
     if (searchHighlightTimer) clearTimeout(searchHighlightTimer);
-    target.scrollIntoView({ block: 'center', behavior: 'auto' });
+    target.scrollIntoView({
+      block: 'center',
+      behavior: $motionPreference === 'reduced' ? 'auto' : 'smooth',
+    });
     await tick();
     target.classList.remove('setting-flash');
     void target.getBoundingClientRect();
@@ -626,7 +629,7 @@
     searchHighlightTimer = window.setTimeout(() => {
       target.classList.remove('setting-flash');
       searchHighlightTimer = null;
-    }, 2400);
+    }, 1400);
   }
 
   function resetCurrentSection() {
@@ -830,11 +833,14 @@
         {#if selectedSection === 'browsing'}
           <div class="mx-auto max-w-3xl space-y-4">
             <section class="rounded-2xl border border-purple-400/20 bg-[radial-gradient(circle_at_85%_0%,rgba(168,85,247,.16),transparent_38%),linear-gradient(135deg,#171420,#101017_70%)] px-4 py-3.5" aria-label="Current browsing defaults">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap gap-2 text-[11px]">
-                  <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Start: {startupOptions.find(option => option.value === $startupView)?.label}</span>
-                  <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">{$imagePageSize === 'all' ? 'All images' : ($imagePageSize + ' per page')}</span>
-                  <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">{$artistNotificationsEnabled ? `Artist check: ${$artistNotificationIntervalMinutes} min` : 'Artist check: Off'}</span>
+              <div class="flex flex-wrap items-end justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 class="mb-2 text-sm font-semibold text-purple-100">Browsing</h3>
+                  <div class="flex flex-wrap gap-2 text-[11px]">
+                    <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Start: {startupOptions.find(option => option.value === $startupView)?.label}</span>
+                    <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">{$imagePageSize === 'all' ? 'All images' : ($imagePageSize + ' per page')}</span>
+                    <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">{$artistNotificationsEnabled ? `Artist check: ${$artistNotificationIntervalMinutes} min` : 'Artist check: Off'}</span>
+                  </div>
                 </div>
                 <button class="shrink-0 rounded-lg border border-white/10 bg-black/15 px-3 py-1.5 text-xs text-gray-400 hover:bg-white/5 hover:text-gray-200" type="button" on:click={resetCurrentSection}>Reset section</button>
               </div>
@@ -933,13 +939,16 @@
         {:else if selectedSection === 'appearance'}
           <div class="mx-auto max-w-3xl space-y-4">
             <section class="rounded-2xl border border-pink-400/20 bg-[radial-gradient(circle_at_20%_0%,rgba(236,72,153,.14),transparent_38%),linear-gradient(135deg,#1b131c,#101017_72%)] px-4 py-3.5" aria-label="Current display settings">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap gap-2 text-[11px]">
-                  <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Cards: {selectedImageSize.label} ({selectedImageSize.cardWidth}px)</span>
-                  <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Fit: {$fitMode === 'fit' ? 'Crop fill' : 'Contain'}</span>
-                  <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Animation: {$mediaPlayback === 'always' ? 'Always' : $mediaPlayback === 'hover' ? 'On hover' : 'Never'}</span>
-                  <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Motion: {$motionPreference === 'system' ? 'System' : $motionPreference === 'full' ? 'Full' : 'Reduced'}</span>
-                  <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Scale: {$interfaceScale === 'comfortable' ? 'Comfortable' : 'Default'}</span>
+              <div class="flex flex-wrap items-end justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 class="mb-2 text-sm font-semibold text-pink-100">Display</h3>
+                  <div class="flex flex-wrap gap-2 text-[11px]">
+                    <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Cards: {selectedImageSize.label} ({selectedImageSize.cardWidth}px)</span>
+                    <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Fit: {$fitMode === 'fit' ? 'Crop fill' : 'Contain'}</span>
+                    <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Animation: {$mediaPlayback === 'always' ? 'Always' : $mediaPlayback === 'hover' ? 'On hover' : 'Never'}</span>
+                    <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Motion: {$motionPreference === 'system' ? 'System' : $motionPreference === 'full' ? 'Full' : 'Reduced'}</span>
+                    <span class="rounded-full border border-white/5 bg-black/20 px-2.5 py-1 text-gray-300">Scale: {$interfaceScale === 'comfortable' ? 'Comfortable' : 'Default'}</span>
+                  </div>
                 </div>
                 <button class="shrink-0 rounded-lg border border-white/10 bg-black/15 px-3 py-1.5 text-xs text-gray-400 hover:bg-white/5 hover:text-gray-200" type="button" on:click={resetCurrentSection}>Reset section</button>
               </div>
@@ -1190,7 +1199,7 @@
   :global(.setting-flash) {
     position: relative;
     z-index: 1;
-    animation: setting-highlight 2.35s ease-out;
+    animation: setting-highlight 1.35s ease-out;
   }
 
   @keyframes settings-section-marker-in {
@@ -1205,18 +1214,9 @@
   }
 
   @keyframes setting-highlight {
-    0%, 38% {
-      box-shadow:
-        0 0 0 3px rgba(233, 213, 255, 0.95),
-        0 0 0 7px rgba(168, 85, 247, 0.28),
-        0 0 38px rgba(168, 85, 247, 0.38);
-      background-color: rgba(168, 85, 247, 0.2);
-    }
-    58% {
-      box-shadow:
-        0 0 0 2px rgba(216, 180, 254, 0.68),
-        0 0 24px rgba(168, 85, 247, 0.2);
-      background-color: rgba(168, 85, 247, 0.1);
+    0%, 20% {
+      box-shadow: 0 0 0 2px rgba(216, 180, 254, 0.78), 0 0 28px rgba(168, 85, 247, 0.22);
+      background-color: rgba(168, 85, 247, 0.11);
     }
     100% {
       box-shadow: 0 0 0 0 transparent;

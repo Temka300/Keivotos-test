@@ -14,11 +14,24 @@
   let suppressNextClick = false;
   let gripRevealed = true;
   let revealTimer: ReturnType<typeof setTimeout> | null = null;
+  let introReady = false;
+  let introFrame: number | null = null;
 
   onMount(() => {
     revealGrip(1600);
+    // Render one closed frame before applying is-open so the 280ms slide
+    // plays on Browse/Tags entry (Beta3.1 behavior lost in the Beta4
+    // persistent-panel rewrite). rAF is deferred in hidden tabs, so the
+    // intro waits until the view is actually rendered.
+    introFrame = requestAnimationFrame(() => {
+      introFrame = requestAnimationFrame(() => {
+        introReady = true;
+        introFrame = null;
+      });
+    });
     return () => {
       if (revealTimer !== null) clearTimeout(revealTimer);
+      if (introFrame !== null) cancelAnimationFrame(introFrame);
     };
   });
 
@@ -92,7 +105,7 @@
 <div
   bind:this={dockRoot}
   class="sidebar-dock relative z-30 h-full shrink-0"
-  class:is-open={$sidebarOpen}
+  class:is-open={$sidebarOpen && introReady}
 >
   <div class="sidebar-panel flex h-full overflow-hidden" aria-hidden={!$sidebarOpen} inert={!$sidebarOpen}>
     <div class="h-full w-64 shrink-0">

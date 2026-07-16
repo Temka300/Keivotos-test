@@ -42,6 +42,32 @@ class LocalApiSecurityTests(unittest.TestCase):
         )
         self.assertEqual(rejection[0] if rejection else None, 400)
 
+    def test_same_origin_lan_browser_request_is_allowed_when_enabled(self) -> None:
+        self.assertIsNone(validate_local_browser_request(
+            host_header="192.168.1.25:52325",
+            scheme="http",
+            origin_header="http://192.168.1.25:52325",
+            lan_host="192.168.1.25",
+        ))
+
+    def test_other_lan_host_is_rejected_when_one_address_is_enabled(self) -> None:
+        rejection = validate_local_browser_request(
+            host_header="192.168.1.26:52325",
+            scheme="http",
+            origin_header=None,
+            lan_host="192.168.1.25",
+        )
+        self.assertEqual(rejection[0] if rejection else None, 400)
+
+    def test_lan_cross_origin_browser_request_is_rejected(self) -> None:
+        rejection = validate_local_browser_request(
+            host_header="192.168.1.25:52325",
+            scheme="http",
+            origin_header="http://192.168.1.26:52325",
+            lan_host="192.168.1.25",
+        )
+        self.assertEqual(rejection[0] if rejection else None, 403)
+
     def test_cross_site_subresource_without_origin_is_rejected(self) -> None:
         rejection = validate_local_browser_request(
             host_header="localhost:52325",

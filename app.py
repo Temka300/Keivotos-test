@@ -4,12 +4,15 @@ Source examples:
     python app.py
     python app.py --dev
     python app.py --no-browser --port 52326
+    python app.py --lan
 """
 from __future__ import annotations
 
 import argparse
 import ctypes
+import ipaddress
 import logging
+import os
 import runpy
 import socket
 import sys
@@ -44,6 +47,20 @@ except Exception as exc:  # noqa: BLE001 - startup must fail clearly before norm
     raise SystemExit(2) from None
 from product import DEFAULT_HOST, DEFAULT_PORT, DISPLAY_NAME, VERSION, WEB_TITLE  # noqa: E402
 from runtime_logging import configure_runtime_logging  # noqa: E402
+
+
+LAN_HOST_ENV = "KEIVOTOS_LAN_HOST"
+LAN_BIND_HOST = "0.0.0.0"
+LAN_IPV4_NETWORKS = tuple(
+    ipaddress.ip_network(network)
+    for network in (
+        "10.0.0.0/8",
+        "100.64.0.0/10",
+        "169.254.0.0/16",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+    )
+)
 
 
 def _load_asgi_app():
@@ -138,6 +155,38 @@ def _port_available(host: str, port: int) -> tuple[bool, str | None]:
     return True, None
 
 
+def _is_lan_ipv4(value: str) -> bool:
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return address.version == 4 and any(address in network for network in LAN_IPV4_NETWORKS)
+
+
+def _discover_lan_ipv4() -> str | None:
+    candidates: list[str] = []
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("192.0.2.1", 9))
+            candidates.append(str(probe.getsockname()[0]))
+    except OSError:
+        pass
+    try:
+        candidates.extend(
+            str(sockaddr[0])
+            for family, _kind, _protocol, _canonical, sockaddr in socket.getaddrinfo(
+                socket.gethostname(),
+                None,
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+            )
+            if family == socket.AF_INET
+        )
+    except OSError:
+        pass
+    return next((candidate for candidate in candidates if _is_lan_ipv4(candidate)), None)
+
+
 def main(argv: list[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
     if arguments[:1] == ["--pipeline"]:
@@ -145,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     if arguments[:1] == ["--folder-picker"]:
         return _run_helper("windows_folder_picker.py", arguments[1:])
 
+    frozen = bool(getattr(sys, "frozen", False))
     parser = argparse.ArgumentParser(description=DISPLAY_NAME)
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -152,14 +202,34 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-browser", action="store_true", help="Do not open the web interface automatically")
     parser.add_argument("--version", action="store_true", help="Print the Keivotos version and exit")
     parser.add_argument("--portable-check", action="store_true", help="Validate packaged resources and print data paths")
+    if not frozen:
+        parser.add_argument(
+            "--lan",
+            action="store_true",
+            help="Allow trusted devices on the same private network to open this source run",
+        )
     args = parser.parse_args(arguments)
+    os.environ.pop(LAN_HOST_ENV, None)
 
     if args.version:
         print(f"{DISPLAY_NAME} {VERSION}")
         return 0
     if args.portable_check:
         return _portable_check()
-    if args.host not in {"127.0.0.1", "localhost", "::1"}:
+    lan_enabled = bool(getattr(args, "lan", False))
+    lan_host: str | None = None
+    bind_host = args.host
+    browser_host = args.host
+    if lan_enabled:
+        if args.host != DEFAULT_HOST:
+            parser.error("--lan cannot be combined with --host")
+        lan_host = _discover_lan_ipv4()
+        if lan_host is None:
+            parser.error("--lan could not find a private IPv4 address for this computer")
+        bind_host = LAN_BIND_HOST
+        browser_host = DEFAULT_HOST
+        os.environ[LAN_HOST_ENV] = lan_host
+    elif args.host not in {"127.0.0.1", "localhost", "::1"}:
         parser.error("Keivotos only binds to a local loopback host")
 
     import uvicorn
@@ -167,29 +237,33 @@ def main(argv: list[str] | None = None) -> int:
     runtime_log_path, access_log_path = configure_runtime_logging()
     logger = logging.getLogger("keivotos")
     _set_console_title()
-    url_host = f"[{args.host}]" if args.host == "::1" else args.host
+    url_host = f"[{browser_host}]" if browser_host == "::1" else browser_host
     url = f"http://{url_host}:{args.port}/"
     logger.info("Starting %s %s at %s", DISPLAY_NAME, VERSION, url)
+    if lan_host is not None:
+        logger.warning("Trusted-network LAN access is enabled at http://%s:%s/", lan_host, args.port)
+        logger.warning("Devices on this network can use Keivotos while this process is running")
     logger.info("Writable application data: %s", SUITE_HOME)
     logger.info("Runtime log: %s", runtime_log_path)
     logger.info("HTTP access log: %s", access_log_path)
-    port_available, port_error = _port_available(args.host, args.port)
+    port_available, port_error = _port_available(bind_host, args.port)
     if not port_available:
+        alternate_action = "--lan --port <another-port>" if lan_enabled else "--port <another-loopback-port>"
         logger.error(
             "Cannot start Keivotos because %s:%s is already in use or unavailable: %s. "
-            "Close the other process or start with --port <another-loopback-port>.",
-            args.host,
+            "Close the other process or start with %s.",
+            bind_host,
             args.port,
             port_error,
+            alternate_action,
         )
         return 2
     if not args.no_browser:
         _open_browser_when_ready(url)
-    frozen = bool(getattr(sys, "frozen", False))
     application = "server:app" if args.dev and not frozen else _load_asgi_app()
     uvicorn.run(
         application,
-        host=args.host,
+        host=bind_host,
         port=args.port,
         reload=bool(args.dev and not frozen),
         app_dir=str(BACKEND_DIR),

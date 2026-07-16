@@ -133,6 +133,23 @@ class RegressionFixTests(unittest.TestCase):
         self.assertFalse(available)
         self.assertTrue(error)
 
+    def test_lan_address_filter_accepts_only_private_ipv4(self) -> None:
+        allowed = ("10.1.2.3", "100.64.0.1", "169.254.1.2", "172.16.4.5", "192.168.1.25")
+        for address in allowed:
+            with self.subTest(address=address):
+                self.assertTrue(launcher._is_lan_ipv4(address))
+        for address in ("127.0.0.1", "8.8.8.8", "::1", "not-an-address"):
+            with self.subTest(address=address):
+                self.assertFalse(launcher._is_lan_ipv4(address))
+
+    def test_portable_launcher_does_not_accept_lan_flag(self) -> None:
+        stderr = io.StringIO()
+        with patch.object(launcher.sys, "frozen", True, create=True), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as caught:
+                launcher.main(["--lan"])
+        self.assertEqual(caught.exception.code, 2)
+        self.assertIn("unrecognized arguments: --lan", stderr.getvalue())
+
     def test_malformed_runtime_config_fails_cleanly_and_is_logged(self) -> None:
         (self.temp / "config.json").write_text('{"automation_enabled": false,}\n', encoding="utf-8")
         environment = {**os.environ, "KEIVOTOS_HOME": str(self.temp)}

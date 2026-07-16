@@ -56,6 +56,18 @@ frontend packages when a build is needed, builds the UI, starts the backend, and
 opens Keivotos. See [`docs/build/source.md`](docs/build/source.md) for the manual
 commands and development mode.
 
+To open the same source run from trusted phones, tablets, or other computers on
+the same private network:
+
+```powershell
+.\run.bat --lan
+```
+
+The console displays the exact address to open on the other device. LAN access
+is opt-in, unauthenticated, and lasts only while that source process is running;
+use it only on a trusted private network. Portable `Keivotos.exe` builds remain
+PC-only.
+
 ## Writable data layout
 
 ```text

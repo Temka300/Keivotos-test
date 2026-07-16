@@ -8,7 +8,8 @@
 3. Run `Keivotos.exe`.
 
 Keivotos opens the Waifu-Hoard interface in your default browser. Keep the
-console open while using the app; closing it stops the local server.
+console open while using the app; closing it stops the local server. Portable
+builds are PC-only and do not provide the source launcher's optional LAN mode.
 
 The executable folder is replaceable application code. Writable state is kept
 under `Documents\Keivotos`, so an upgrade should replace the application folder,

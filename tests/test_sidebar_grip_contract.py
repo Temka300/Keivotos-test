@@ -12,7 +12,8 @@ class SidebarGripContractTests(unittest.TestCase):
         source = (ROOT / "frontend" / "src" / "components" / "SidebarDock.svelte").read_text(encoding="utf-8")
 
         required_fragments = [
-            "class:is-open={$sidebarOpen}",
+            "class:is-open={$sidebarOpen && introReady}",
+            "requestAnimationFrame(",
             "class=\"sidebar-panel flex h-full overflow-hidden\"",
             ".sidebar-dock.is-open .sidebar-panel",
             "transition: width 280ms",

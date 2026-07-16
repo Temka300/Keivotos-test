@@ -11,6 +11,20 @@ The move from `http://127.0.0.1:8000` to `http://localhost:52325` therefore star
 fresh browser-only UI state. It does not move, reset, or delete either SQLite
 database, sidecars, favorites, collections, registered roots, or images.
 
+## A phone or other device cannot open LAN mode
+
+LAN access exists only in a source run started from the repository root:
+
+```powershell
+.\run.bat --lan
+```
+
+Open the private IPv4 URL printed by Keivotos, not `localhost`, on the other
+device. Confirm both devices are on the same private network and allow Python
+through Windows Firewall for **Private networks** if Windows prompts. Guest
+Wi-Fi and access-point isolation can prevent devices from reaching each other.
+Packaged `Keivotos.exe` builds intentionally remain PC-only.
+
 ## A source ZIP does not start
 
 Confirm `uv --version`, `node --version`, and `npm.cmd --version` work in a new
