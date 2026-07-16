@@ -19,7 +19,9 @@ From the repository root:
 
 `run.bat` synchronizes Python 3.11 from `pyproject.toml` and `uv.lock`. If the
 committed frontend output is unavailable, it installs from `package-lock.json`
-and builds it. The browser then opens at <http://localhost:52325/>.
+and builds it. The launcher window uses the Keivotos icon and the
+`Keivotos - Waifu-Hoard` title while keeping setup, runtime, LAN-address, and
+error output visible. The browser then opens at <http://localhost:52325/>.
 
 ## Trusted devices on the same network
 

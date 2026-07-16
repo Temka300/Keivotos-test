@@ -51,6 +51,7 @@ from runtime_logging import configure_runtime_logging  # noqa: E402
 
 LAN_HOST_ENV = "KEIVOTOS_LAN_HOST"
 LAN_BIND_HOST = "0.0.0.0"
+CONSOLE_ICON_PATH = ROOT / "assets" / "branding" / "keivotos" / "keivotos.ico"
 LAN_IPV4_NETWORKS = tuple(
     ipaddress.ip_network(network)
     for network in (
@@ -72,11 +73,47 @@ def _load_asgi_app():
     return asgi_app
 
 
-def _set_console_title() -> None:
+def _set_console_branding() -> None:
     if sys.platform != "win32":
         return
     try:
-        ctypes.windll.kernel32.SetConsoleTitleW(WEB_TITLE)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        kernel32.SetConsoleTitleW.argtypes = [ctypes.c_wchar_p]
+        kernel32.SetConsoleTitleW.restype = ctypes.c_int
+        kernel32.GetConsoleWindow.argtypes = []
+        kernel32.GetConsoleWindow.restype = ctypes.c_void_p
+        user32.LoadImageW.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_wchar_p,
+            ctypes.c_uint,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_uint,
+        ]
+        user32.LoadImageW.restype = ctypes.c_void_p
+        user32.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_void_p]
+        user32.SendMessageW.restype = ctypes.c_ssize_t
+
+        kernel32.SetConsoleTitleW(WEB_TITLE)
+        console_window = kernel32.GetConsoleWindow()
+        if not console_window or not CONSOLE_ICON_PATH.is_file():
+            return
+
+        image_icon = 1
+        load_from_file = 0x0010
+        wm_seticon = 0x0080
+        for icon_kind, size in ((1, 32), (0, 16)):
+            icon = user32.LoadImageW(
+                None,
+                str(CONSOLE_ICON_PATH),
+                image_icon,
+                size,
+                size,
+                load_from_file,
+            )
+            if icon:
+                user32.SendMessageW(console_window, wm_seticon, icon_kind, icon)
     except (AttributeError, OSError):
         pass
 
@@ -236,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
 
     runtime_log_path, access_log_path = configure_runtime_logging()
     logger = logging.getLogger("keivotos")
-    _set_console_title()
+    _set_console_branding()
     url_host = f"[{browser_host}]" if browser_host == "::1" else browser_host
     url = f"http://{url_host}:{args.port}/"
     logger.info("Starting %s %s at %s", DISPLAY_NAME, VERSION, url)

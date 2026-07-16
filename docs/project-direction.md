@@ -2,8 +2,8 @@
 
 Keivotos is the shared local-first suite; Waifu-Hoard is its first module.
 V1.0.0 establishes the identity, external writable-data layout, source launch,
-portable-build path, CI, and FOSS distribution foundation needed before more
-hoarders are combined.
+portable-build path, local verification, and FOSS distribution foundation
+needed before more hoarders are combined.
 
 ## Next investigation
 
@@ -38,4 +38,5 @@ storage/backup model, disk-budget behavior, viewer, and data-safety review.
 Automatic updates, deployment feeds, code signing, installers, Docker, plugin
 APIs, and private/public dual-repository development are intentionally deferred.
 They add permanent maintenance and trust obligations; the current manual,
-reproducible artifact workflow is the correct V1.0.0 boundary.
+reproducible local artifact build is the correct V1.0.0 boundary. GitHub Actions
+automation is deferred to a future release.

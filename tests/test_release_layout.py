@@ -190,7 +190,7 @@ class ReleaseLayoutTests(unittest.TestCase):
 
     def test_web_document_uses_suite_identity(self) -> None:
         index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("<title>Keivotos — Waifu-Hoard</title>", index)
+        self.assertIn("<title>Keivotos - Waifu-Hoard</title>", index)
         self.assertIn('href="/favicon.png"', index)
         self.assertTrue((ROOT / "frontend" / "public" / "keivotos-logo.png").is_file())
         self.assertTrue((ROOT / "packaging" / "windows" / "assets" / "keivotos.ico").is_file())
@@ -198,11 +198,13 @@ class ReleaseLayoutTests(unittest.TestCase):
     def test_launcher_and_brand_assets_use_the_keivotos_defaults(self) -> None:
         sys.path.insert(0, str(ROOT / "backend"))
         try:
-            from product import DEFAULT_HOST, DEFAULT_ORIGIN, DEFAULT_PORT
+            from product import DEFAULT_HOST, DEFAULT_ORIGIN, DEFAULT_PORT, DISPLAY_NAME, WEB_TITLE
         finally:
             sys.path.pop(0)
         self.assertEqual((DEFAULT_HOST, DEFAULT_PORT), ("localhost", 52325))
         self.assertEqual(DEFAULT_ORIGIN, "http://localhost:52325")
+        self.assertEqual(DISPLAY_NAME, "Keivotos - Waifu-Hoard")
+        self.assertEqual(WEB_TITLE, DISPLAY_NAME)
 
         canonical = (
             ROOT / "assets" / "branding" / "keivotos" / "source" / "keivotos-angular-logo.svg"
@@ -228,6 +230,12 @@ class ReleaseLayoutTests(unittest.TestCase):
         self.assertNotIn('src="/keivotos-logo.png"', user_menu)
         self.assertIn(": '/profile-avatar.svg';", profile_view)
         self.assertIn('<img src="/profile-avatar.svg" alt="" class="h-9 w-9', app_drawer)
+
+        launcher = (ROOT / "app.py").read_text(encoding="utf-8")
+        self.assertIn('CONSOLE_ICON_PATH = ROOT / "assets" / "branding" / "keivotos" / "keivotos.ico"', launcher)
+        self.assertIn("SetConsoleTitleW(WEB_TITLE)", launcher)
+        self.assertIn("wm_seticon = 0x0080", launcher)
+        self.assertIn("user32.SendMessageW(console_window, wm_seticon, icon_kind, icon)", launcher)
 
 
 if __name__ == "__main__":

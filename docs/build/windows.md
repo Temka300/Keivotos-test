@@ -26,11 +26,8 @@ The script:
 Build and work directories are cleaned only after the script verifies they are
 inside this repository. User data under `Documents\Keivotos` is never packaged.
 
-## GitHub workflow
-
-The manual **Package Windows** workflow runs the same script on a clean Windows
-runner and uploads the ZIP/checksum as a workflow artifact. It does not create a
-GitHub Release, change tags, or deploy an update feed.
+GitHub Actions packaging is intentionally deferred. Build and inspect the ZIP
+and checksum locally before attaching them to a release.
 
 ## Redistribution
 

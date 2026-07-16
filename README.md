@@ -53,8 +53,10 @@ Install [uv](https://docs.astral.sh/uv/) and current Node.js, then run:
 
 The launcher creates/synchronizes Python 3.11 from `uv.lock`, installs the locked
 frontend packages when a build is needed, builds the UI, starts the backend, and
-opens Keivotos. See [`docs/build/source.md`](docs/build/source.md) for the manual
-commands and development mode.
+opens Keivotos. Its Windows console uses the `Keivotos - Waifu-Hoard` title and
+Keivotos icon while retaining startup progress and error output. See
+[`docs/build/source.md`](docs/build/source.md) for the manual commands and
+development mode.
 
 To open the same source run from trusted phones, tablets, or other computers on
 the same private network:
@@ -105,7 +107,7 @@ assets/branding/  Keivotos suite and Waifu-Hoard module brand masters
 packaging/windows Windows portable-build specification and resources
 docs/build/       contributor build instructions
 docs/user/        installation, storage, and troubleshooting guides
-.github/          CI, package workflow, and contribution templates
+.github/          issue and pull-request contribution templates
 ```
 
 The project deliberately keeps its clear `backend/` and `frontend/` boundaries.
@@ -126,9 +128,9 @@ npm.cmd run build
 ```
 
 Windows packaging is documented in
-[`docs/build/windows.md`](docs/build/windows.md). The packaging workflow builds
-an artifact for inspection; publishing and release creation remain deliberate
-maintainer actions.
+[`docs/build/windows.md`](docs/build/windows.md). Build and inspect the portable
+archive locally; publishing and release creation remain deliberate maintainer
+actions.
 
 ## Project direction
 
