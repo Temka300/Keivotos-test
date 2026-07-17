@@ -455,7 +455,6 @@ class AutomationStatus(BaseModel):
 
 
 class BackupConfigurationUpdate(BaseModel):
-    destination: str
     components: dict[str, bool] = Field(default_factory=dict)
 
 

@@ -22,6 +22,7 @@ artifacts/
 /Keivotos-V*-windows-x64.zip
 /Keivotos-V*-windows-x64.zip.sha256
 /download.png
+/run-lan.local.bat
 packaging/windows/build/
 packaging/windows/dist/
 eggs/

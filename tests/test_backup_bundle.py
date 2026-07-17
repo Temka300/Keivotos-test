@@ -89,6 +89,10 @@ class MetadataBackupBundleTests(unittest.TestCase):
     def test_backup_creation_feedback_is_visible_before_restore(self) -> None:
         source = (ROOT / "frontend" / "src" / "components" / "BackupRestoreSettings.svelte").read_text(encoding="utf-8")
         self.assertIn("Created ${result.name} (${result.display_size}) in ${destination}", source)
+        self.assertIn("Backup location", source)
+        self.assertIn("Save selection", source)
+        self.assertNotIn("browseDestination", source)
+        self.assertNotIn("Save location", source)
         self.assertIn('aria-live="polite"', source)
         self.assertIn("backupMessage ? 'Create another backup' : 'Create backup'", source)
         self.assertLess(source.index("{#if backupMessage}"), source.index('class="mt-4 grid gap-2 sm:grid-cols-2"'))
@@ -96,6 +100,7 @@ class MetadataBackupBundleTests(unittest.TestCase):
 
     def test_verified_bundle_restores_metadata_and_never_images(self) -> None:
         created = backup_bundle.create_backup_bundle()
+        self.assertRegex(created["name"], r"^backup_\d+(?:_\d+)?\.keivotosbk$")
         manifest = backup_bundle.inspect_backup_bundle(Path(created["path"]))
         self.assertFalse(manifest["external_images_included"])
         self.assertFalse(manifest["thumbnails_included"])
@@ -123,6 +128,19 @@ class MetadataBackupBundleTests(unittest.TestCase):
         self.assertEqual((self.sidecars / "sample.json").read_text(encoding="utf-8"), "original-sidecar")
         self.assertEqual(self.external_image.read_bytes(), b"original-image-must-stay")
         self.assertTrue(Path(restored["rollback_path"]).is_dir())
+
+    def test_legacy_whbackup_bundle_remains_listed_and_restorable(self) -> None:
+        created = backup_bundle.create_backup_bundle()
+        current = Path(created["path"])
+        legacy = current.with_suffix(".whbackup")
+        current.replace(legacy)
+
+        listed = backup_bundle.list_backups(self.destination)
+        self.assertIn(legacy.name, [item["name"] for item in listed])
+        inspected = backup_bundle.inspect_backup_bundle(legacy)
+        self.assertEqual(inspected["format"], "waifu-hoard-metadata-backup")
+        restored = backup_bundle.restore_backup_bundle(legacy.name)
+        self.assertEqual(restored["name"], legacy.name)
 
     def test_restore_waits_for_inflight_database_users(self) -> None:
         created = backup_bundle.create_backup_bundle()

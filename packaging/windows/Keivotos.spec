@@ -1,8 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_submodules
 
 
 ROOT = Path(SPECPATH).parents[1]
+UVICORN_HIDDEN_IMPORTS = [
+    *collect_submodules("uvicorn.lifespan"),
+    *collect_submodules("uvicorn.loops"),
+    *collect_submodules("uvicorn.protocols.http"),
+    *collect_submodules("uvicorn.protocols.websockets"),
+]
 
 analysis = Analysis(
     [str(ROOT / "app.py")],
@@ -14,7 +21,7 @@ analysis = Analysis(
         (str(ROOT / "scripts" / "windows_folder_picker.py"), "scripts"),
         (str(ROOT / "config.json"), "."),
     ],
-    hiddenimports=["server"],
+    hiddenimports=["server", "runtime_logging", *UVICORN_HIDDEN_IMPORTS],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

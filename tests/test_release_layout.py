@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import unittest
@@ -30,7 +31,7 @@ class ReleaseLayoutTests(unittest.TestCase):
         self.assertEqual(config["data_root"], "library")
         self.assertEqual(config["metadata_dir"], ".")
         self.assertEqual(config["gallery_dl_dir"], "gallery-dl")
-        self.assertEqual(config["backup_destination"], "backups/waifu-hoard")
+        self.assertNotIn("backup_destination", config)
 
     def test_release_outputs_are_ignored_at_the_repository_root(self) -> None:
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
@@ -46,11 +47,59 @@ class ReleaseLayoutTests(unittest.TestCase):
             self.assertNotIn(personal_name, config_source)
             self.assertNotIn(personal_name, pipeline_source)
 
-    def test_windows_documents_known_folder_is_the_default_source(self) -> None:
+    def test_windows_local_app_data_known_folder_is_the_default_source(self) -> None:
         source = (ROOT / "backend" / "config.py").read_text(encoding="utf-8")
         self.assertIn("SHGetKnownFolderPath", source)
-        self.assertIn("FOLDERID_DOCUMENTS", source)
-        self.assertIn('documents_directory() / "Keivotos"', source)
+        self.assertIn("FOLDERID_LOCAL_APP_DATA", source)
+        self.assertIn('local_app_data_directory() / "Keivotos"', source)
+
+    def test_documents_suite_home_is_copied_verified_and_rebased(self) -> None:
+        with isolated_home() as temporary:
+            legacy = temporary / "Documents" / "Keivotos"
+            destination = temporary / "LocalAppData" / "Keivotos"
+            module = legacy / "modules" / "waifu-hoard"
+            (module / "sidecars").mkdir(parents=True)
+            connection = sqlite3.connect(module / "user.sqlite")
+            connection.execute("CREATE TABLE marker(value TEXT NOT NULL)")
+            connection.execute("INSERT INTO marker(value) VALUES ('user-database')")
+            connection.commit()
+            connection.close()
+            (module / "sidecars" / "sample.json").write_text("sidecar", encoding="utf-8")
+            (legacy / "config.json").write_text(
+                json.dumps({
+                    "metadata_dir": str(module),
+                    "gallery_dl_dir": str(module / "gallery-dl"),
+                    "thumbnail_cache_limit_gb": 5,
+                }),
+                encoding="utf-8",
+            )
+            environment = {**os.environ, "KEIVOTOS_HOME": str(temporary / "isolated-import")}
+            code = (
+                "import json, sys; from pathlib import Path; "
+                f"sys.path.insert(0, {str(ROOT / 'backend')!r}); "
+                "import config; "
+                f"result=config.migrate_legacy_suite_home(Path({str(legacy)!r}), Path({str(destination)!r})); "
+                "print(json.dumps(result))"
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", code],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            migration = json.loads(result.stdout)
+            self.assertTrue(migration["migrated"])
+            self.assertTrue(migration["config_rebased"])
+            for database in (destination / "modules" / "waifu-hoard" / "user.sqlite", module / "user.sqlite"):
+                connection = sqlite3.connect(database)
+                value = connection.execute("SELECT value FROM marker").fetchone()[0]
+                connection.close()
+                self.assertEqual(value, "user-database")
+            migrated_config = json.loads((destination / "config.json").read_text(encoding="utf-8"))
+            self.assertEqual(migrated_config["metadata_dir"], str(destination / "modules" / "waifu-hoard"))
+            self.assertEqual(migrated_config["thumbnail_cache_limit_gb"], 5)
 
     def test_legacy_metadata_wrapper_is_flattened_without_overwrite(self) -> None:
         with isolated_home() as temporary:
@@ -61,7 +110,7 @@ class ReleaseLayoutTests(unittest.TestCase):
             (legacy / "user.sqlite").write_bytes(b"user-db")
             environment = {**os.environ, "KEIVOTOS_HOME": str(temporary)}
             code = (
-                "import json, sys; "
+                "import json, sys; from pathlib import Path; "
                 f"sys.path.insert(0, {str(ROOT / 'backend')!r}); "
                 "import config; "
                 "print(json.dumps(config.migrate_legacy_default_metadata()))"
@@ -112,15 +161,19 @@ class ReleaseLayoutTests(unittest.TestCase):
         with isolated_home() as temporary:
             environment = {**os.environ, "KEIVOTOS_HOME": str(temporary)}
             code = (
-                "import json, sys; "
+                "import json, sys; from pathlib import Path; "
                 f"sys.path.insert(0, {str(ROOT / 'backend')!r}); "
-                "import config; from routers.folders import _is_generated_folder; "
+                "import config; from routers.folders import _is_generated_folder, _unsafe_library_root_reason; "
                 "p=config.MODULE_HOME; "
                 "print(json.dumps({"
                 "'root': _is_generated_folder(p), "
                 "'library': _is_generated_folder(p/'library'/'images'), "
                 "'sidecars': _is_generated_folder(p/'sidecars'/'roots'), "
-                "'gallery': _is_generated_folder(p/'gallery-dl'/'work')"
+                "'gallery': _is_generated_folder(p/'gallery-dl'/'work'), "
+                "'suite': _is_generated_folder(config.SUITE_HOME), "
+                "'backups': _is_generated_folder(config.DEFAULT_BACKUP_DIR), "
+                "'logs': _is_generated_folder(config.LOG_DIR), "
+                "'drive': _unsafe_library_root_reason(Path(p.anchor))"
                 "}))"
             )
             result = subprocess.run(
@@ -136,6 +189,10 @@ class ReleaseLayoutTests(unittest.TestCase):
             self.assertFalse(guard["library"])
             self.assertTrue(guard["sidecars"])
             self.assertTrue(guard["gallery"])
+            self.assertTrue(guard["suite"])
+            self.assertTrue(guard["backups"])
+            self.assertTrue(guard["logs"])
+            self.assertIn("entire drive", guard["drive"])
 
     def test_runtime_config_is_written_under_isolated_keivotos_home(self) -> None:
         with isolated_home() as temporary:
@@ -158,6 +215,28 @@ class ReleaseLayoutTests(unittest.TestCase):
             runtime_config = Path(result.stdout.strip())
             self.assertEqual(runtime_config, temporary / "config.json")
             self.assertEqual(json.loads(runtime_config.read_text(encoding="utf-8"))["thumbnail_cache_limit_gb"], 5)
+
+    def test_backup_destination_is_fixed_even_with_a_legacy_override(self) -> None:
+        with isolated_home() as temporary:
+            (temporary / "config.json").write_text(
+                json.dumps({"backup_destination": str(temporary / "old-custom-backups")}),
+                encoding="utf-8",
+            )
+            environment = {**os.environ, "KEIVOTOS_HOME": str(temporary)}
+            code = (
+                "import sys; "
+                f"sys.path.insert(0, {str(ROOT / 'backend')!r}); "
+                "import config; print(config.get_backup_config()['destination'])"
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", code],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertEqual(Path(result.stdout.strip()), temporary / "backups" / "waifu-hoard")
 
     def test_product_identity_and_portable_check(self) -> None:
         with isolated_home() as temporary:
@@ -186,7 +265,28 @@ class ReleaseLayoutTests(unittest.TestCase):
 
     def test_windows_spec_collects_the_backend_composition_root(self) -> None:
         spec = (ROOT / "packaging" / "windows" / "Keivotos.spec").read_text(encoding="utf-8")
-        self.assertIn('hiddenimports=["server"]', spec)
+        self.assertIn(
+            'hiddenimports=["server", "runtime_logging", *UVICORN_HIDDEN_IMPORTS]',
+            spec,
+        )
+        for package in (
+            "uvicorn.lifespan",
+            "uvicorn.loops",
+            "uvicorn.protocols.http",
+            "uvicorn.protocols.websockets",
+        ):
+            self.assertIn(f'collect_submodules("{package}")', spec)
+
+    def test_windows_release_cleanup_and_portable_smoke_are_guarded(self) -> None:
+        script = (ROOT / "scripts" / "release" / "build_windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("$RepositoryPrefix", script)
+        self.assertIn("$CleanupPaths", script)
+        self.assertLess(script.index("foreach ($Path in $CleanupPaths)"), script.index("Remove-Item -LiteralPath $Path -Recurse -Force"))
+        self.assertNotIn("$ResolvedParent.StartsWith($Root", script)
+        self.assertIn("Start-Process -FilePath $Executable", script)
+        self.assertIn("-WindowStyle Hidden -PassThru", script)
+        self.assertIn("Invoke-WebRequest", script)
+        self.assertIn("$env:KEIVOTOS_HOME = $SmokeHome", script)
 
     def test_web_document_uses_suite_identity(self) -> None:
         index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")

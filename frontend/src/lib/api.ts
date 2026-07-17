@@ -773,8 +773,8 @@ export const api = {
   createLocalRecoveryCheckpoint: () =>
     post<LocalRecoveryStatus & { status: string; created: boolean; message: string }>('/local-recovery/checkpoint'),
 
-  configureBackups: (destination: string, components: BackupComponents) =>
-    put<BackupConfiguration>('/backups', { destination, components }),
+  configureBackups: (components: BackupComponents) =>
+    put<BackupConfiguration>('/backups', { components }),
 
   estimateBackup: (components: BackupComponents) =>
     post<BackupEstimate>('/backups/estimate', { components }),

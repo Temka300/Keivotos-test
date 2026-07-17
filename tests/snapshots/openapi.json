@@ -362,15 +362,8 @@
             },
             "title": "Components",
             "type": "object"
-          },
-          "destination": {
-            "title": "Destination",
-            "type": "string"
           }
         },
-        "required": [
-          "destination"
-        ],
         "title": "BackupConfigurationUpdate",
         "type": "object"
       },

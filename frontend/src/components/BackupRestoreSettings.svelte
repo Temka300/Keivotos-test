@@ -83,23 +83,12 @@
     await refreshEstimate();
   }
 
-  async function browseDestination() {
-    backupError = '';
-    backupMessage = '';
-    try {
-      const result = await api.browseFolder();
-      if (result.path) destination = result.path;
-    } catch (caught) {
-      backupError = caught instanceof Error ? caught.message : 'Could not open the folder browser.';
-    }
-  }
-
   async function saveConfiguration(showMessage = true): Promise<boolean> {
     backupError = '';
     if (showMessage) backupMessage = '';
     try {
-      applyConfiguration(await api.configureBackups(destination, components));
-      if (showMessage) backupMessage = 'Backup location and contents saved.';
+      applyConfiguration(await api.configureBackups(components));
+      if (showMessage) backupMessage = 'Backup contents saved.';
       return true;
     } catch (caught) {
       backupError = caught instanceof Error ? caught.message : 'Could not save backup settings.';
@@ -172,7 +161,7 @@
 
 <section id="setting-backup" class="overflow-hidden rounded-2xl border border-amber-400/20 bg-[radial-gradient(circle_at_82%_0%,rgba(245,158,11,.16),transparent_38%),linear-gradient(135deg,#1d1810,#101017_72%)] p-5">
   <div class="flex flex-wrap items-center justify-between gap-4"><div><h3 class="text-base font-bold text-amber-100">Manual metadata backup</h3><div class="mt-2 flex flex-wrap gap-2 text-[10px]"><span class="rounded-full bg-black/20 px-2.5 py-1 text-amber-100/65">No original images</span><span class="rounded-full bg-black/20 px-2.5 py-1 text-amber-100/65">No thumbnails</span><span class="rounded-full bg-black/20 px-2.5 py-1 text-amber-100/65">No credentials</span></div></div><button class="rounded-xl bg-amber-500/15 px-4 py-2 text-xs font-semibold text-amber-100 ring-1 ring-inset ring-amber-300/15 hover:bg-amber-500/25 disabled:opacity-40" type="button" disabled={busy || toolRunning} on:click={createBackup}>{busy ? 'Working…' : backupMessage ? 'Create another backup' : 'Create backup'}</button></div>
-  <div class="mt-4 flex gap-2"><input class="min-w-0 flex-1 rounded-xl border border-amber-300/15 bg-black/20 px-3 py-2 text-xs text-amber-50/80 outline-none" type="text" bind:value={destination} /><button class="rounded-xl border border-amber-300/15 px-3 py-2 text-xs text-amber-100/80 hover:bg-amber-500/10" type="button" on:click={browseDestination}>Browse…</button><button class="rounded-xl border border-amber-300/15 px-3 py-2 text-xs text-amber-100/80 hover:bg-amber-500/10" type="button" on:click={() => saveConfiguration()}>Save location</button></div>
+  <div class="mt-4 rounded-xl border border-amber-300/10 bg-black/15 px-3 py-2.5"><div class="text-[10px] uppercase tracking-[0.14em] text-amber-100/45">Backup location</div><div class="mt-1 break-all font-mono text-xs text-amber-50/70">{destination || 'Loading…'}</div></div>
   {#if backupMessage}<p aria-live="polite" class="mt-3 rounded-xl border border-green-400/20 bg-green-500/[0.08] px-4 py-3 text-xs leading-relaxed text-green-300">{backupMessage}</p>{/if}
   {#if backupError}<p role="alert" class="mt-3 rounded-xl border border-red-400/20 bg-red-500/[0.08] px-4 py-3 text-xs leading-relaxed text-red-300">{backupError}</p>{/if}
   <div class="mt-4 grid gap-2 sm:grid-cols-2">
@@ -180,12 +169,12 @@
       <button class="flex items-start gap-3 rounded-xl border p-3 text-left transition-colors {components[choice.key] ? 'border-amber-300/20 bg-amber-500/[0.07]' : 'border-white/5 bg-black/15'}" type="button" role="checkbox" aria-checked={components[choice.key]} on:click={() => toggleComponent(choice.key)}><span class="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded border {components[choice.key] ? 'border-amber-300/40 bg-amber-400/20 text-amber-100' : 'border-gray-700 text-transparent'}">✓</span><span><span class="text-sm font-semibold text-gray-200">{choice.label}{#if choice.recommended}<span class="ml-2 text-[9px] uppercase text-amber-300">recommended</span>{/if}</span><span class="mt-0.5 block text-xs leading-relaxed text-gray-500">{choice.description}</span><span class="mt-1 block text-[10px] text-gray-600">{estimate?.details[choice.key]?.display_size ?? 'Calculating…'} · {estimate?.details[choice.key]?.files ?? 0} files</span></span></button>
     {/each}
   </div>
-  <div class="mt-4 rounded-xl border border-amber-300/10 bg-black/15 px-3 py-2.5"><div class="text-xs font-semibold text-amber-100/80">Estimated compressed size: {estimate?.estimated_compressed_display ?? 'Calculating…'}</div><div class="mt-0.5 text-[10px] text-amber-100/45">Raw selection {estimate?.display_size ?? '—'} · exact size is verified after creation</div></div>
+  <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300/10 bg-black/15 px-3 py-2.5"><div><div class="text-xs font-semibold text-amber-100/80">Estimated compressed size: {estimate?.estimated_compressed_display ?? 'Calculating…'}</div><div class="mt-0.5 text-[10px] text-amber-100/45">Raw selection {estimate?.display_size ?? '—'} · exact size is verified after creation</div></div><button class="rounded-lg border border-amber-300/15 px-3 py-2 text-xs text-amber-100/80 hover:bg-amber-500/10 disabled:opacity-40" type="button" disabled={busy || toolRunning} on:click={() => saveConfiguration()}>Save selection</button></div>
 </section>
 
 <section id="setting-restore" class="overflow-hidden rounded-xl border border-purple-400/15 bg-[#111118]">
   <div class="border-b border-[#242432] p-4"><h4 class="text-sm font-semibold text-gray-200">Restore metadata backup</h4></div>
-  <div class="flex flex-wrap gap-2 p-4"><select class="min-w-0 flex-1 rounded-xl border border-[#303040] bg-[#0d0d13] px-3 py-2 text-xs text-gray-200" bind:value={selectedBackup} on:change={() => inspectSelected()}><option value="">Choose a .whbackup file</option>{#each configuration?.backups ?? [] as backup}<option value={backup.name}>{backup.name} · {backup.display_size}</option>{/each}</select><button class="rounded-xl border border-purple-400/20 px-3 py-2 text-xs text-purple-200 hover:bg-purple-500/10 disabled:opacity-40" type="button" disabled={!selectedBackup || busy || toolRunning} on:click={restoreSelected}>Restore</button></div>
+  <div class="flex flex-wrap gap-2 p-4"><select class="min-w-0 flex-1 rounded-xl border border-[#303040] bg-[#0d0d13] px-3 py-2 text-xs text-gray-200" bind:value={selectedBackup} on:change={() => inspectSelected()}><option value="">Choose a backup</option>{#each configuration?.backups ?? [] as backup}<option value={backup.name}>{backup.name} · {backup.display_size}</option>{/each}</select><button class="rounded-xl border border-purple-400/20 px-3 py-2 text-xs text-purple-200 hover:bg-purple-500/10 disabled:opacity-40" type="button" disabled={!selectedBackup || busy || toolRunning} on:click={restoreSelected}>Restore</button></div>
   {#if inspected}<div class="border-t border-[#242432] bg-black/10 px-4 py-3 text-[11px] text-gray-500">Created {new Date(inspected.created_at).toLocaleString()} · format {inspected.format_version} · originals excluded · thumbnails excluded</div>{/if}
 </section>
 

@@ -3,7 +3,7 @@
 Keivotos separates replaceable application files from writable library state.
 
 ```text
-Documents/Keivotos/
+%LOCALAPPDATA%/Keivotos/
 ├── config.json
 ├── logs/
 ├── modules/waifu-hoard/
@@ -25,17 +25,22 @@ Documents/Keivotos/
 - `sidecars/` stores durable metadata by stable registered-root identity.
 - `thumbnails/` is derived cache and can be cleared.
 - `gallery-dl/` contains acquisition work files and archives.
-- `backups/waifu-hoard/` is only the default destination for backups you create.
+- `backups/waifu-hoard/` is the fixed destination for backups you create.
 - `logs/waifu-hoard-runtime-YYYY-MM-DD_HH-MM-SS-pPID.log` records startup,
   mutations, failed reads, background work, warnings, and errors.
 - `logs/waifu-hoard-access-YYYY-MM-DD_HH-MM-SS-pPID.log` records every local
   HTTP method, path, and status. Each stream rolls over at 5 MB with five
   chunks, and retains its 30 most recent files.
 
-`Documents` means the location returned by the Windows Known Folder API. If
-Windows redirects Documents to OneDrive, another drive, or an organization-
-managed path, Keivotos follows that real location instead of constructing
-`C:\Users\<name>\Documents` manually. Settings shows the exact resolved paths.
+`%LOCALAPPDATA%` means the machine-local location returned by the Windows Known
+Folder API. Keivotos does not place live SQLite databases in a redirected or
+roaming Documents folder. Settings shows the exact resolved paths.
+
+On the first normal launch after this layout change, an existing
+`Documents\Keivotos` tree is copied into a resumable staging directory, every
+file is verified, and the completed copy is installed under Local AppData. The
+Documents original is never deleted. Paths inside the copied `config.json` are
+rebased only when they previously pointed below that legacy suite home.
 
 The module directory is itself the default metadata root; there is no extra
 `metadata/` wrapper. If an earlier V1.0.0 test build created that wrapper,
@@ -49,13 +54,15 @@ one with a stable root ID. If a root is moved to another drive, use
 Settings → Library → Relocate; this updates index/user references while keeping
 the same sidecar namespace. Keivotos does not move the image files for you.
 
-Manual `.whbackup` bundles may contain the selected SQLite databases and
-sidecar/profile archives. They never contain original media, thumbnails, or
-the DPAPI credential file.
+Manual `backup_<Unix timestamp>.keivotosbk` bundles may contain the selected
+SQLite databases and sidecar/profile archives. Existing `.whbackup` bundles
+remain restorable. Neither format contains original media, thumbnails, or the
+DPAPI credential file.
 
 ## Overrides
 
-Settings that need persistence are written to `Documents\Keivotos\config.json`.
+Settings that need persistence are written to
+`%LOCALAPPDATA%\Keivotos\config.json`.
 The repository `config.json` is a default template and is not rewritten at
 runtime. Developers and CI can set `KEIVOTOS_HOME` to redirect the complete
 default layout to a temporary location.

@@ -306,7 +306,7 @@ def create_recovery_checkpoint():
 @router.put("/api/backups")
 def configure_backups(update: BackupConfigurationUpdate):
     try:
-        return update_backup_configuration(update.destination, update.components)
+        return update_backup_configuration(update.components)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 

@@ -28,7 +28,9 @@ from config import (
 
 
 BACKUP_FORMAT_VERSION = 1
-BACKUP_SUFFIX = ".whbackup"
+BACKUP_SUFFIX = ".keivotosbk"
+LEGACY_BACKUP_SUFFIXES = (".whbackup",)
+SUPPORTED_BACKUP_SUFFIXES = (BACKUP_SUFFIX, *LEGACY_BACKUP_SUFFIXES)
 COMPONENTS = {
     "user_database": ("databases/user.sqlite", USER_DB_PATH),
     "library_database": ("databases/danbooru.sqlite", DATA_DB_PATH),
@@ -149,14 +151,11 @@ def backup_configuration() -> dict[str, Any]:
     }
 
 
-def update_backup_configuration(destination: str, components: dict[str, Any]) -> dict[str, Any]:
-    path = Path(destination.strip().strip('"')).expanduser()
-    if not path.is_absolute():
-        raise ValueError("Backup destination must be an absolute folder path")
+def update_backup_configuration(components: dict[str, Any]) -> dict[str, Any]:
     selected = normalized_components(components)
     if not any(selected.values()):
         raise ValueError("Select at least one backup component")
-    save_config({"backup_destination": str(path), "backup_components": selected})
+    save_config({"backup_components": selected})
     return backup_configuration()
 
 
@@ -164,8 +163,13 @@ def list_backups(destination: Path | None = None) -> list[dict[str, Any]]:
     target = destination or Path(get_backup_config()["destination"]).expanduser()
     if not target.is_dir():
         return []
+    paths = [
+        path
+        for path in target.iterdir()
+        if path.is_file() and path.suffix.casefold() in SUPPORTED_BACKUP_SUFFIXES
+    ]
     result = []
-    for path in sorted(target.glob(f"*{BACKUP_SUFFIX}"), key=lambda item: item.stat().st_mtime, reverse=True):
+    for path in sorted(paths, key=lambda item: item.stat().st_mtime, reverse=True):
         try:
             stat = path.stat()
             result.append({
@@ -229,8 +233,12 @@ def create_backup_bundle(components: dict[str, Any] | None = None) -> dict[str, 
         destination = Path(get_backup_config()["destination"]).expanduser()
         destination.mkdir(parents=True, exist_ok=True)
         METADATA_DIR.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S_%f")
-        final_path = destination / f"Waifu-Hoard_{stamp}{BACKUP_SUFFIX}"
+        stamp = int(time.time())
+        final_path = destination / f"backup_{stamp}{BACKUP_SUFFIX}"
+        counter = 2
+        while final_path.exists():
+            final_path = destination / f"backup_{stamp}_{counter}{BACKUP_SUFFIX}"
+            counter += 1
         partial_path = final_path.with_name(final_path.name + ".partial")
         partial_path.unlink(missing_ok=True)
 
@@ -345,7 +353,7 @@ def restore_backup_bundle(name: str) -> dict[str, Any]:
             source.relative_to(destination)
         except ValueError as exc:
             raise ValueError("Backup must be inside the configured backup destination") from exc
-        if source.suffix != BACKUP_SUFFIX or not source.is_file():
+        if source.suffix.casefold() not in SUPPORTED_BACKUP_SUFFIXES or not source.is_file():
             raise FileNotFoundError("Backup file was not found")
 
         manifest = inspect_backup_bundle(source)

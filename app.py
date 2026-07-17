@@ -4,12 +4,14 @@ Source examples:
     python app.py
     python app.py --dev
     python app.py --no-browser --port 52326
-    python app.py --lan
+
+Maintainer LAN runs use the ignored run-lan.local.bat launcher.
 """
 from __future__ import annotations
 
 import argparse
 import ctypes
+import importlib
 import ipaddress
 import logging
 import os
@@ -34,23 +36,12 @@ BACKEND_DIR = ROOT / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-try:
-    from config import DATA_ROOT, GALLERY_DL_DIR, METADATA_DIR, RUNTIME_CONFIG_FILE, SUITE_HOME  # noqa: E402
-except Exception as exc:  # noqa: BLE001 - startup must fail clearly before normal logging exists.
-    message = f"Keivotos could not load its configuration. {exc}"
-    print(message, file=sys.stderr)
-    if getattr(sys, "frozen", False) and sys.platform == "win32":
-        try:
-            ctypes.windll.user32.MessageBoxW(None, message, "Keivotos configuration error", 0x10)
-        except (AttributeError, OSError):
-            pass
-    raise SystemExit(2) from None
 from product import DEFAULT_HOST, DEFAULT_PORT, DISPLAY_NAME, VERSION, WEB_TITLE  # noqa: E402
-from runtime_logging import configure_runtime_logging  # noqa: E402
 
 
 LAN_HOST_ENV = "KEIVOTOS_LAN_HOST"
-LAN_BIND_HOST = "0.0.0.0"
+LAN_DEVELOPER_ENV = "KEIVOTOS_DEVELOPER_LAN"
+MIGRATE_LEGACY_HOME_ENV = "KEIVOTOS_MIGRATE_LEGACY_HOME"
 CONSOLE_ICON_PATH = ROOT / "assets" / "branding" / "keivotos" / "keivotos.ico"
 LAN_IPV4_NETWORKS = tuple(
     ipaddress.ip_network(network)
@@ -62,6 +53,22 @@ LAN_IPV4_NETWORKS = tuple(
         "192.168.0.0/16",
     )
 )
+
+
+def _load_configuration(*, migrate_legacy_home: bool):
+    if migrate_legacy_home:
+        os.environ[MIGRATE_LEGACY_HOME_ENV] = "1"
+    try:
+        return importlib.import_module("config")
+    except Exception as exc:  # noqa: BLE001 - configuration must fail clearly before logging exists.
+        message = f"Keivotos could not load its configuration. {exc}"
+        print(message, file=sys.stderr)
+        if getattr(sys, "frozen", False) and sys.platform == "win32":
+            try:
+                ctypes.windll.user32.MessageBoxW(None, message, "Keivotos configuration error", 0x10)
+            except (AttributeError, OSError):
+                pass
+        raise SystemExit(2) from None
 
 
 def _load_asgi_app():
@@ -153,7 +160,7 @@ def _open_browser_when_ready(url: str) -> None:
     threading.Thread(target=worker, name="keivotos-browser-launch", daemon=True).start()
 
 
-def _portable_check() -> int:
+def _portable_check(configuration) -> int:
     frontend = ROOT / "frontend" / "dist" / "index.html"
     folder_picker = ROOT / "scripts" / "windows_folder_picker.py"
     asgi_app = _load_asgi_app()
@@ -163,11 +170,11 @@ def _portable_check() -> int:
     print(f"Frontend: {'ok' if frontend.is_file() else 'missing'} ({frontend})")
     print(f"Backend: {'ok' if backend_ok else 'missing root route'}")
     print(f"Folder picker: {'ok' if folder_picker.is_file() else 'missing'} ({folder_picker})")
-    print(f"Writable home: {SUITE_HOME}")
-    print(f"Runtime config: {RUNTIME_CONFIG_FILE}")
-    print(f"Library: {DATA_ROOT}")
-    print(f"Metadata: {METADATA_DIR}")
-    print(f"gallery-dl: {GALLERY_DL_DIR}")
+    print(f"Writable home: {configuration.SUITE_HOME}")
+    print(f"Runtime config: {configuration.RUNTIME_CONFIG_FILE}")
+    print(f"Library: {configuration.DATA_ROOT}")
+    print(f"Metadata: {configuration.METADATA_DIR}")
+    print(f"gallery-dl: {configuration.GALLERY_DL_DIR}")
     tools_ok = True
     if getattr(sys, "frozen", False):
         executable_dir = Path(sys.executable).resolve().parent
@@ -227,6 +234,7 @@ def _discover_lan_ipv4() -> str | None:
 def main(argv: list[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
     if arguments[:1] == ["--pipeline"]:
+        _load_configuration(migrate_legacy_home=True)
         return _run_helper("danbooru_gallery_dl.py", arguments[1:])
     if arguments[:1] == ["--folder-picker"]:
         return _run_helper("windows_folder_picker.py", arguments[1:])
@@ -239,7 +247,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-browser", action="store_true", help="Do not open the web interface automatically")
     parser.add_argument("--version", action="store_true", help="Print the Keivotos version and exit")
     parser.add_argument("--portable-check", action="store_true", help="Validate packaged resources and print data paths")
-    if not frozen:
+    developer_lan_enabled = os.environ.get(LAN_DEVELOPER_ENV, "").strip() == "1"
+    if not frozen and developer_lan_enabled:
         parser.add_argument(
             "--lan",
             action="store_true",
@@ -249,10 +258,13 @@ def main(argv: list[str] | None = None) -> int:
     os.environ.pop(LAN_HOST_ENV, None)
 
     if args.version:
+        _load_configuration(migrate_legacy_home=False)
         print(f"{DISPLAY_NAME} {VERSION}")
         return 0
     if args.portable_check:
-        return _portable_check()
+        configuration = _load_configuration(migrate_legacy_home=False)
+        return _portable_check(configuration)
+    configuration = _load_configuration(migrate_legacy_home=True)
     lan_enabled = bool(getattr(args, "lan", False))
     lan_host: str | None = None
     bind_host = args.host
@@ -263,15 +275,16 @@ def main(argv: list[str] | None = None) -> int:
         lan_host = _discover_lan_ipv4()
         if lan_host is None:
             parser.error("--lan could not find a private IPv4 address for this computer")
-        bind_host = LAN_BIND_HOST
+        bind_host = lan_host
         browser_host = DEFAULT_HOST
         os.environ[LAN_HOST_ENV] = lan_host
     elif args.host not in {"127.0.0.1", "localhost", "::1"}:
         parser.error("Keivotos only binds to a local loopback host")
 
     import uvicorn
+    runtime_logging = importlib.import_module("runtime_logging")
 
-    runtime_log_path, access_log_path = configure_runtime_logging()
+    runtime_log_path, access_log_path = runtime_logging.configure_runtime_logging()
     logger = logging.getLogger("keivotos")
     _set_console_branding()
     url_host = f"[{browser_host}]" if browser_host == "::1" else browser_host
@@ -280,7 +293,15 @@ def main(argv: list[str] | None = None) -> int:
     if lan_host is not None:
         logger.warning("Trusted-network LAN access is enabled at http://%s:%s/", lan_host, args.port)
         logger.warning("Devices on this network can use Keivotos while this process is running")
-    logger.info("Writable application data: %s", SUITE_HOME)
+    migration = configuration.SUITE_HOME_MIGRATION
+    if migration.get("migrated"):
+        logger.info(
+            "Copied and verified legacy application data: %s files from %s to %s; the original was preserved",
+            migration["files"],
+            migration["source"],
+            migration["destination"],
+        )
+    logger.info("Writable application data: %s", configuration.SUITE_HOME)
     logger.info("Runtime log: %s", runtime_log_path)
     logger.info("HTTP access log: %s", access_log_path)
     port_available, port_error = _port_available(bind_host, args.port)

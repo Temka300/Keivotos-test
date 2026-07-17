@@ -6,12 +6,85 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
+if ($Version -notmatch '^[0-9]+(?:\.[0-9]+){2}[A-Za-z0-9._-]*$') {
+    throw "Version contains unsafe path characters: $Version"
+}
 $PackagingRoot = Join-Path $Root "packaging\windows"
 $DistRoot = Join-Path $PackagingRoot "dist"
 $WorkRoot = Join-Path $PackagingRoot "build"
 $ArtifactRoot = [System.IO.Path]::GetFullPath((Join-Path $Root $OutputDirectory))
 $StageName = "Keivotos-V$Version-windows-x64"
 $StageRoot = Join-Path $ArtifactRoot $StageName
+
+function Assert-PathInsideRepository {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $Target = [System.IO.Path]::GetFullPath($Path)
+    $RepositoryPrefix = $Root.TrimEnd([char[]]@('\', '/')) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $Target.StartsWith($RepositoryPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to use a path outside the repository: $Path"
+    }
+    return $Target
+}
+
+function Get-FreeLoopbackPort {
+    $Listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    try {
+        $Listener.Start()
+        return ([System.Net.IPEndPoint]$Listener.LocalEndpoint).Port
+    }
+    finally {
+        $Listener.Stop()
+    }
+}
+
+function Test-PortableServer {
+    param(
+        [Parameter(Mandatory = $true)][string]$Executable,
+        [Parameter(Mandatory = $true)][string]$LogDirectory
+    )
+
+    $Port = Get-FreeLoopbackPort
+    $StandardOutput = Join-Path $LogDirectory "portable-smoke-stdout.log"
+    $StandardError = Join-Path $LogDirectory "portable-smoke-stderr.log"
+    $Process = $null
+    try {
+        $Process = Start-Process -FilePath $Executable `
+            -ArgumentList @("--no-browser", "--port", "$Port") `
+            -RedirectStandardOutput $StandardOutput `
+            -RedirectStandardError $StandardError `
+            -WindowStyle Hidden -PassThru
+        $Deadline = [DateTime]::UtcNow.AddSeconds(45)
+        while ([DateTime]::UtcNow -lt $Deadline) {
+            $Process.Refresh()
+            if ($Process.HasExited) {
+                $ErrorText = if (Test-Path -LiteralPath $StandardError) {
+                    Get-Content -LiteralPath $StandardError -Raw
+                } else { "No stderr was captured." }
+                throw "Portable server exited before becoming ready (code $($Process.ExitCode)): $ErrorText"
+            }
+            try {
+                $Response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/" -TimeoutSec 2
+                if ($Response.StatusCode -eq 200) {
+                    return
+                }
+            }
+            catch {
+                Start-Sleep -Milliseconds 250
+            }
+        }
+        throw "Portable server did not become ready within 45 seconds"
+    }
+    finally {
+        if ($null -ne $Process) {
+            $Process.Refresh()
+            if (-not $Process.HasExited) {
+                Stop-Process -Id $Process.Id -Force
+                Wait-Process -Id $Process.Id -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
 
 function Compress-PortableArchive {
     param(
@@ -33,11 +106,11 @@ function Compress-PortableArchive {
     }
 }
 
-foreach ($Path in @($DistRoot, $WorkRoot, $StageRoot)) {
-    $ResolvedParent = [System.IO.Path]::GetFullPath((Split-Path -Parent $Path))
-    if (-not $ResolvedParent.StartsWith($Root, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "Refusing to clean a path outside the repository: $Path"
-    }
+$CleanupPaths = @($DistRoot, $WorkRoot, $StageRoot)
+foreach ($Path in $CleanupPaths) {
+    $null = Assert-PathInsideRepository -Path $Path
+}
+foreach ($Path in $CleanupPaths) {
     if (Test-Path -LiteralPath $Path) {
         Remove-Item -LiteralPath $Path -Recurse -Force
     }
@@ -80,10 +153,29 @@ try {
     & $FfmpegPath -L | Set-Content -LiteralPath (Join-Path $FfmpegLicenseDirectory "LICENSE.txt") -Encoding utf8
     Copy-Item -LiteralPath (Join-Path $Root "packaging\windows\FFMPEG_SOURCE.md") -Destination $FfmpegLicenseDirectory
 
-    & (Join-Path $StageRoot "Keivotos.exe") --version
-    & (Join-Path $StageRoot "Keivotos.exe") --portable-check
-    & (Join-Path $StageRoot "gallery-dl.exe") --version
-    & (Join-Path $StageRoot "ffmpeg.exe") -version
+    $SmokeHome = Join-Path $WorkRoot "portable-smoke-home"
+    New-Item -ItemType Directory -Path $SmokeHome -Force | Out-Null
+    $PreviousKeivotosHome = $env:KEIVOTOS_HOME
+    try {
+        $env:KEIVOTOS_HOME = $SmokeHome
+        & (Join-Path $StageRoot "Keivotos.exe") --version
+        if ($LASTEXITCODE -ne 0) { throw "Packaged Keivotos version check failed" }
+        & (Join-Path $StageRoot "Keivotos.exe") --portable-check
+        if ($LASTEXITCODE -ne 0) { throw "Packaged Keivotos resource check failed" }
+        & (Join-Path $StageRoot "gallery-dl.exe") --version
+        if ($LASTEXITCODE -ne 0) { throw "Packaged gallery-dl version check failed" }
+        & (Join-Path $StageRoot "ffmpeg.exe") -version
+        if ($LASTEXITCODE -ne 0) { throw "Packaged FFmpeg version check failed" }
+        Test-PortableServer -Executable (Join-Path $StageRoot "Keivotos.exe") -LogDirectory $SmokeHome
+    }
+    finally {
+        if ($null -eq $PreviousKeivotosHome) {
+            Remove-Item Env:KEIVOTOS_HOME -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:KEIVOTOS_HOME = $PreviousKeivotosHome
+        }
+    }
 
     $ZipPath = Join-Path $ArtifactRoot "$StageName.zip"
     if (Test-Path -LiteralPath $ZipPath) { Remove-Item -LiteralPath $ZipPath -Force }

@@ -20,11 +20,14 @@ The script:
 4. builds `Keivotos.exe` and a separate `gallery-dl.exe`;
 5. places a separate `ffmpeg.exe` beside the application;
 6. collects project and dependency notices;
-7. runs version/resource checks for every executable; and
-8. writes a ZIP plus SHA-256 checksum under `artifacts/`.
+7. runs version/resource checks for every executable;
+8. starts the staged `Keivotos.exe` with an isolated application-data home and
+   requires a successful loopback HTTP response; and
+9. writes a ZIP plus SHA-256 checksum under `artifacts/`.
 
 Build and work directories are cleaned only after the script verifies they are
-inside this repository. User data under `Documents\Keivotos` is never packaged.
+inside this repository. User data under `%LOCALAPPDATA%\Keivotos` is never
+packaged or used by the build smoke test.
 
 GitHub Actions packaging is intentionally deferred. Build and inspect the ZIP
 and checksum locally before attaching them to a release.

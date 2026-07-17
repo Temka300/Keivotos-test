@@ -6,10 +6,13 @@ from fastapi import APIRouter, Query
 from config import (
     ARTIST_PROFILE_ARCHIVE_DIR,
     CODE_ROOT,
+    DEFAULT_BACKUP_DIR,
     GALLERY_DL_DIR,
+    LOG_DIR,
     METADATA_DIR,
     MODULE_HOME,
     SIDECAR_DIR,
+    SUITE_HOME,
     THUMB_DIR,
 )
 from core import *  # shared query, database, and media helpers
@@ -30,13 +33,23 @@ def _is_generated_folder(folder_path: Path) -> bool:
     """Protect generated data without blocking library roots beside it."""
     resolved_metadata = METADATA_DIR.resolve(strict=False)
     resolved_module = MODULE_HOME.resolve(strict=False)
+    resolved_suite = SUITE_HOME.resolve(strict=False)
+    if folder_path == resolved_suite or folder_path in resolved_module.parents:
+        return True
     if resolved_metadata != resolved_module:
-        return folder_path == resolved_metadata or resolved_metadata in folder_path.parents
+        return (
+            folder_path == resolved_metadata
+            or resolved_metadata in folder_path.parents
+            or folder_path in resolved_metadata.parents
+        )
     if folder_path == resolved_metadata:
         return True
     generated_paths = (
         ARTIST_PROFILE_ARCHIVE_DIR,
+        DEFAULT_BACKUP_DIR,
         GALLERY_DL_DIR,
+        LOG_DIR,
+        SUITE_HOME / "backups",
         METADATA_DIR / "local_recovery",
         METADATA_DIR / "sidecar_archive",
         SIDECAR_DIR,
@@ -47,6 +60,15 @@ def _is_generated_folder(folder_path: Path) -> bool:
         or generated.resolve(strict=False) in folder_path.parents
         for generated in generated_paths
     )
+
+
+def _unsafe_library_root_reason(folder_path: Path) -> str | None:
+    anchor = Path(folder_path.anchor).resolve(strict=False) if folder_path.anchor else None
+    if anchor is not None and folder_path == anchor:
+        return "Register a specific image folder, not an entire drive or filesystem root"
+    if _is_generated_folder(folder_path):
+        return "Cannot register Keivotos metadata, backups, logs, or work folders"
+    return None
 
 
 def _registered_folder_row(identifier: str) -> dict | None:
@@ -220,8 +242,9 @@ def register_folder(data: FolderCreate):
     resolved_root = DATA_ROOT.resolve(strict=False)
     if folder_path == resolved_root:
         raise HTTPException(400, "Register individual image folders, not the data root itself")
-    if _is_generated_folder(folder_path):
-        raise HTTPException(400, "Cannot register a metadata or work folder")
+    unsafe_reason = _unsafe_library_root_reason(folder_path)
+    if unsafe_reason:
+        raise HTTPException(400, unsafe_reason)
 
     try:
         name = str(folder_path.relative_to(resolved_root))
@@ -326,8 +349,9 @@ def relocate_folder(root_id: str, data: FolderRelocate):
         raise HTTPException(400, f"Folder does not exist: {new_root}")
     if new_root == DATA_ROOT.resolve(strict=False):
         raise HTTPException(400, "Register individual image folders, not the data root itself")
-    if _is_generated_folder(new_root):
-        raise HTTPException(400, "Cannot register a metadata or work folder")
+    unsafe_reason = _unsafe_library_root_reason(new_root)
+    if unsafe_reason:
+        raise HTTPException(400, unsafe_reason)
 
     normalized_new_root = os.path.normcase(str(new_root))
     for row in registered_folder_rows():

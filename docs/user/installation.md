@@ -12,9 +12,10 @@ console open while using the app; closing it stops the local server. Portable
 builds are PC-only and do not provide the source launcher's optional LAN mode.
 
 The executable folder is replaceable application code. Writable state is kept
-under `Documents\Keivotos`, so an upgrade should replace the application folder,
-not the Documents folder. Always keep independent backups of irreplaceable user
-state and original media.
+under `%LOCALAPPDATA%\Keivotos`, so an upgrade should replace the application
+folder, not the application-data folder. An older `Documents\Keivotos` layout
+is copied and verified on first normal launch, with the original preserved.
+Always keep independent backups of irreplaceable user state and original media.
 
 ## Source build
 

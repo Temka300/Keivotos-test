@@ -13,9 +13,11 @@ import unittest
 import uuid
 from contextlib import contextmanager, redirect_stderr
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi import HTTPException
+import uvicorn
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -144,11 +146,50 @@ class RegressionFixTests(unittest.TestCase):
 
     def test_portable_launcher_does_not_accept_lan_flag(self) -> None:
         stderr = io.StringIO()
-        with patch.object(launcher.sys, "frozen", True, create=True), redirect_stderr(stderr):
+        with (
+            patch.dict(os.environ, {launcher.LAN_DEVELOPER_ENV: "1"}),
+            patch.object(launcher.sys, "frozen", True, create=True),
+            redirect_stderr(stderr),
+        ):
             with self.assertRaises(SystemExit) as caught:
                 launcher.main(["--lan"])
         self.assertEqual(caught.exception.code, 2)
         self.assertIn("unrecognized arguments: --lan", stderr.getvalue())
+
+    def test_source_launcher_requires_the_local_developer_lan_marker(self) -> None:
+        stderr = io.StringIO()
+        with (
+            patch.dict(os.environ, {launcher.LAN_DEVELOPER_ENV: ""}),
+            patch.object(launcher.sys, "frozen", False, create=True),
+            redirect_stderr(stderr),
+        ):
+            with self.assertRaises(SystemExit) as caught:
+                launcher.main(["--lan"])
+        self.assertEqual(caught.exception.code, 2)
+        self.assertIn("unrecognized arguments: --lan", stderr.getvalue())
+
+    def test_developer_lan_binds_only_the_discovered_adapter(self) -> None:
+        configuration = SimpleNamespace(
+            SUITE_HOME=self.temp,
+            SUITE_HOME_MIGRATION={"migrated": False},
+        )
+        runtime_logging = SimpleNamespace(
+            configure_runtime_logging=lambda: (self.temp / "runtime.log", self.temp / "access.log")
+        )
+        with (
+            patch.dict(os.environ, {launcher.LAN_DEVELOPER_ENV: "1"}),
+            patch.object(launcher.sys, "frozen", False, create=True),
+            patch.object(launcher, "_load_configuration", return_value=configuration),
+            patch.object(launcher, "_discover_lan_ipv4", return_value="192.168.1.25"),
+            patch.object(launcher, "_port_available", return_value=(True, None)),
+            patch.object(launcher, "_load_asgi_app", return_value=object()),
+            patch.object(launcher.importlib, "import_module", return_value=runtime_logging),
+            patch.object(uvicorn, "run") as run_server,
+        ):
+            result = launcher.main(["--lan", "--no-browser", "--port", "52400"])
+        self.assertEqual(result, 0)
+        self.assertEqual(run_server.call_args.kwargs["host"], "192.168.1.25")
+        self.assertNotEqual(run_server.call_args.kwargs["host"], "0.0.0.0")
 
     def test_malformed_runtime_config_fails_cleanly_and_is_logged(self) -> None:
         (self.temp / "config.json").write_text('{"automation_enabled": false,}\n', encoding="utf-8")

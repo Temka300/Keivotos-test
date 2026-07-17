@@ -5,6 +5,8 @@ import ctypes
 import hashlib
 import json
 import os
+import shutil
+import sqlite3
 import sys
 import uuid
 from ctypes import wintypes
@@ -36,10 +38,10 @@ class _Guid(ctypes.Structure):
 
 
 FOLDERID_DOCUMENTS = _Guid.parse("FDD39AD0-238F-46AF-ADB4-6C85480369C7")
+FOLDERID_LOCAL_APP_DATA = _Guid.parse("F1B32785-6FBA-4FCF-9D55-7B8E7F157091")
 
 
-def windows_documents_directory() -> Path | None:
-    """Return the Windows Documents known folder, including redirected paths."""
+def _windows_known_folder(folder_id: _Guid) -> Path | None:
     if os.name != "nt":
         return None
     try:
@@ -58,7 +60,7 @@ def windows_documents_directory() -> Path | None:
     ole32.CoTaskMemFree.restype = None
     raw_path = ctypes.c_void_p()
     result = shell32.SHGetKnownFolderPath(
-        ctypes.byref(FOLDERID_DOCUMENTS),
+        ctypes.byref(folder_id),
         0,
         None,
         ctypes.byref(raw_path),
@@ -71,15 +73,35 @@ def windows_documents_directory() -> Path | None:
         ole32.CoTaskMemFree(raw_path)
 
 
+def windows_documents_directory() -> Path | None:
+    """Return the Windows Documents known folder, including redirected paths."""
+    return _windows_known_folder(FOLDERID_DOCUMENTS)
+
+
+def windows_local_app_data_directory() -> Path | None:
+    """Return the machine-local Windows application-data known folder."""
+    return _windows_known_folder(FOLDERID_LOCAL_APP_DATA)
+
+
 def documents_directory() -> Path:
     return windows_documents_directory() or (Path.home() / "Documents")
 
 
+def local_app_data_directory() -> Path:
+    windows_path = windows_local_app_data_directory()
+    if windows_path is not None:
+        return windows_path
+    configured = os.environ.get("XDG_DATA_HOME", "").strip()
+    return Path(configured).expanduser() if configured else Path.home() / ".local" / "share"
+
+
 _suite_home_override = os.environ.get("KEIVOTOS_HOME", "").strip()
+DEFAULT_SUITE_HOME = local_app_data_directory() / "Keivotos"
+LEGACY_SUITE_HOME = documents_directory() / "Keivotos"
 SUITE_HOME = (
     Path(_suite_home_override).expanduser()
     if _suite_home_override
-    else documents_directory() / "Keivotos"
+    else DEFAULT_SUITE_HOME
 )
 MODULE_HOME = SUITE_HOME / "modules" / "waifu-hoard"
 DEFAULT_LIBRARY_DIR = MODULE_HOME / "library"
@@ -97,7 +119,7 @@ ACCESS_LOG_FILE = LOG_DIR / f"waifu-hoard-access-{LOG_SESSION_ID}.log"
 RUNTIME_CONFIG_FILE = SUITE_HOME / "config.json"
 
 # Compatibility name used by existing APIs; it means the module's writable
-# root inside the Keivotos Documents layout.
+# root inside the Keivotos application-data layout.
 DOCUMENTS_ROOT = DEFAULT_METADATA_DIR
 
 _defaults: dict[str, Any] = {
@@ -107,7 +129,6 @@ _defaults: dict[str, Any] = {
     "automation_enabled": False,
     "automation_enabled_at": None,
     "automation_interval_minutes": 15,
-    "backup_destination": str(DEFAULT_BACKUP_DIR),
     "backup_components": {
         "user_database": True,
         "library_database": True,
@@ -119,7 +140,7 @@ _defaults: dict[str, Any] = {
 }
 _external_path_defaults = {
     key: _defaults[key]
-    for key in ("data_root", "metadata_dir", "gallery_dl_dir", "backup_destination")
+    for key in ("data_root", "metadata_dir", "gallery_dl_dir")
 }
 
 
@@ -165,6 +186,146 @@ def _read_json(path: Path) -> dict[str, Any]:
     return value
 
 
+def _files_match(left: Path, right: Path) -> bool:
+    if left.stat().st_size != right.stat().st_size:
+        return False
+
+    def digest(path: Path) -> str:
+        hasher = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+
+    return digest(left) == digest(right)
+
+
+def _copy_verified_tree(source: Path, destination: Path) -> tuple[int, int]:
+    """Resume a copy without overwriting conflicts, verifying every file."""
+    if source.is_symlink():
+        raise RuntimeError(f"Refused to migrate symbolic link: {source}")
+    if source.is_dir():
+        if destination.exists() and not destination.is_dir():
+            raise RuntimeError(f"Migration destination conflicts with a directory: {destination}")
+        destination.mkdir(parents=True, exist_ok=True)
+        copied = copied_bytes = 0
+        for child in sorted(source.iterdir(), key=lambda item: item.name.casefold()):
+            child_count, child_bytes = _copy_verified_tree(child, destination / child.name)
+            copied += child_count
+            copied_bytes += child_bytes
+        return copied, copied_bytes
+    if not source.is_file():
+        raise RuntimeError(f"Refused unsupported migration entry: {source}")
+    if destination.exists():
+        if not destination.is_file() or not _files_match(source, destination):
+            raise RuntimeError(
+                "Application-data migration found a conflicting destination. "
+                f"Preserved both locations for manual review: {source} and {destination}"
+            )
+    else:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    if not _files_match(source, destination):
+        raise RuntimeError(f"Application-data migration verification failed: {source}")
+    return 1, source.stat().st_size
+
+
+def _rebase_migrated_config(config_path: Path, source_home: Path, destination_home: Path) -> bool:
+    """Retarget only copied paths that previously lived below Documents/Keivotos."""
+    if not config_path.is_file():
+        return False
+    config = _read_json(config_path)
+    changed = False
+    for key in ("data_root", "metadata_dir", "gallery_dl_dir", "backup_destination"):
+        value = config.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        path = Path(value).expanduser()
+        if not path.is_absolute():
+            continue
+        try:
+            relative = path.resolve(strict=False).relative_to(source_home)
+        except ValueError:
+            continue
+        config[key] = str(destination_home / relative)
+        changed = True
+    if not changed:
+        return False
+    temporary = config_path.with_suffix(".json.migration.tmp")
+    with temporary.open("w", encoding="utf-8") as handle:
+        json.dump(config, handle, indent=2, ensure_ascii=False)
+        handle.write("\n")
+    temporary.replace(config_path)
+    return True
+
+
+def _verify_migrated_databases(staging_home: Path) -> None:
+    module_home = staging_home / "modules" / "waifu-hoard"
+    for database_name in ("user.sqlite", "danbooru.sqlite"):
+        path = module_home / database_name
+        if not path.is_file():
+            continue
+        connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+        try:
+            row = connection.execute("PRAGMA quick_check").fetchone()
+        finally:
+            connection.close()
+        if not row or row[0] != "ok":
+            raise RuntimeError(f"Application-data migration SQLite check failed for {database_name}: {row!r}")
+
+
+def migrate_legacy_suite_home(
+    source: Path | None = None,
+    destination: Path | None = None,
+) -> dict[str, Any]:
+    """Copy-and-verify Documents/Keivotos into the local app-data layout."""
+    source_home = (source or LEGACY_SUITE_HOME).expanduser().resolve(strict=False)
+    destination_home = (destination or DEFAULT_SUITE_HOME).expanduser().resolve(strict=False)
+    if _suite_home_override and source is None and destination is None:
+        return {"migrated": False, "reason": "override", "files": 0, "bytes": 0}
+    if destination_home.exists():
+        return {"migrated": False, "reason": "destination-exists", "files": 0, "bytes": 0}
+    if not source_home.is_dir():
+        return {"migrated": False, "reason": "legacy-missing", "files": 0, "bytes": 0}
+    if source_home.is_symlink():
+        raise RuntimeError(f"Refused symbolic-link application-data migration: {source_home}")
+    if source_home == destination_home or source_home in destination_home.parents or destination_home in source_home.parents:
+        raise RuntimeError("Application-data migration source and destination must be separate directories")
+
+    staging = destination_home.with_name(destination_home.name + ".migration-staging")
+    if staging.resolve(strict=False).parent != destination_home.parent:
+        raise RuntimeError("Application-data migration staging escaped its destination parent")
+    if staging.exists() and (staging.is_symlink() or not staging.is_dir()):
+        raise RuntimeError(f"Application-data migration staging is unsafe: {staging}")
+    destination_home.parent.mkdir(parents=True, exist_ok=True)
+    staging.mkdir(parents=True, exist_ok=True)
+
+    files = copied_bytes = 0
+    for child in sorted(source_home.iterdir(), key=lambda item: item.name.casefold()):
+        child_files, child_bytes = _copy_verified_tree(child, staging / child.name)
+        files += child_files
+        copied_bytes += child_bytes
+    _verify_migrated_databases(staging)
+    config_rebased = _rebase_migrated_config(staging / "config.json", source_home, destination_home)
+    staging.replace(destination_home)
+    return {
+        "migrated": True,
+        "reason": "copied-and-verified",
+        "files": files,
+        "bytes": copied_bytes,
+        "config_rebased": config_rebased,
+        "source": str(source_home),
+        "destination": str(destination_home),
+    }
+
+
+SUITE_HOME_MIGRATION = (
+    migrate_legacy_suite_home()
+    if os.environ.pop("KEIVOTOS_MIGRATE_LEGACY_HOME", "") == "1"
+    else {"migrated": False, "reason": "not-requested", "files": 0, "bytes": 0}
+)
+
+
 def _load() -> dict[str, Any]:
     config = {**_defaults, **_read_json(SOURCE_CONFIG_FILE)}
     # Tests and portable verification can redirect every writable default with
@@ -196,20 +357,6 @@ THUMB_DIR = METADATA_DIR / "thumbnails"
 SIDECAR_DIR = METADATA_DIR / "sidecars"
 ARTIST_PROFILE_ARCHIVE_DIR = METADATA_DIR / "artist_profile_archive"
 CREDENTIALS_PATH = METADATA_DIR / "danbooru_credentials.json"
-
-
-def _files_match(left: Path, right: Path) -> bool:
-    if left.stat().st_size != right.stat().st_size:
-        return False
-
-    def digest(path: Path) -> str:
-        hasher = hashlib.sha256()
-        with path.open("rb") as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                hasher.update(chunk)
-        return hasher.hexdigest()
-
-    return digest(left) == digest(right)
 
 
 def _merge_legacy_entry(source: Path, destination: Path) -> tuple[int, int]:
@@ -306,8 +453,7 @@ def get_backup_config() -> dict[str, Any]:
     components = _cfg.get("backup_components")
     if isinstance(components, dict):
         defaults.update({key: bool(value) for key, value in components.items() if key in defaults})
-    destination = _resolve_path(str(_cfg.get("backup_destination", DEFAULT_BACKUP_DIR)), SUITE_HOME)
-    return {"destination": str(destination), "components": defaults}
+    return {"destination": str(DEFAULT_BACKUP_DIR), "components": defaults}
 
 
 def get_thumbnail_cache_limit_bytes() -> int:

@@ -18,7 +18,7 @@ video library.
 - Run resumable local import/backfill tools and user-triggered acquisition through
   gallery-dl.
 - Preserve irreplaceable user state separately from the rebuildable media index,
-  with verified checkpoints and user-created `.whbackup` bundles.
+  with verified checkpoints and user-created `.keivotosbk` bundles.
 - Remain single-user and local-first: no login, cloud account, or hotlinked remote
   media is required.
 
@@ -35,10 +35,9 @@ Release history and compatibility decisions are recorded in
 
 The portable folder contains application resources only. Your configuration,
 databases, sidecars, thumbnails, work files, and backups live under
-the Windows-known `Documents\Keivotos` location, so redirected Documents paths
-are respected and replacing the application folder does not replace your
-library state.
-`
+the machine-local `%LOCALAPPDATA%\Keivotos` location, so replacing the
+application folder does not replace your library state.
+
 ### From a source clone or source ZIP
 
 Install [uv](https://docs.astral.sh/uv/) and current Node.js, then run:
@@ -54,22 +53,14 @@ Keivotos icon while retaining startup progress and error output. See
 [`docs/build/source.md`](docs/build/source.md) for the manual commands and
 development mode.
 
-To open the same source run from trusted phones, tablets, or other computers on`
-the same private network:
-
-```powershell
-.\run.bat --lan
-```
-
-The console displays the exact address to open on the other device. LAN access
-is opt-in, unauthenticated, and lasts only while that source process is running;
-use it only on a trusted private network. Portable `Keivotos.exe` builds remain
-PC-only.
+Normal source runs and portable `Keivotos.exe` builds remain loopback-only.
+Maintainer LAN testing is enabled only by a local ignored developer launcher,
+binds to one detected private adapter, and is never exposed by frozen builds.
 
 ## Writable data layout
 
 ```text
-Documents/Keivotos/
+%LOCALAPPDATA%/Keivotos/
 ├── config.json                         # user-created runtime overrides
 ├── logs/                               # rotating keivotos.log files
 ├── modules/waifu-hoard/
@@ -80,7 +71,7 @@ Documents/Keivotos/
 │   ├── thumbnails/                     # derived cache
 │   ├── local_recovery/                 # verified local checkpoints
 │   └── gallery-dl/                     # acquisition work files
-└── backups/waifu-hoard/                # default manual backup destination
+└── backups/waifu-hoard/                # fixed manual backup destination
 ```
 
 Existing external media remains where it is. Registering a folder indexes it;
@@ -91,6 +82,8 @@ its stable root identity and sidecars. More detail is in
 Older V1.0.0 test builds that created a `metadata/` wrapper are flattened into
 the module directory on the next launch; conflicting files are preserved and
 startup stops instead of overwriting either copy.
+An existing `Documents\Keivotos` suite home is first copied and verified into
+Local AppData; the complete Documents original is preserved.
 
 ## Repository map
 

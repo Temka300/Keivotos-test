@@ -13,10 +13,11 @@ database, sidecars, favorites, collections, registered roots, or images.
 
 ## A phone or other device cannot open LAN mode
 
-LAN access exists only in a source run started from the repository root:
+LAN access exists only in a maintainer checkout through its ignored local
+launcher:
 
 ```powershell
-.\run.bat --lan
+.\run-lan.local.bat
 ```
 
 Open the private IPv4 URL printed by Keivotos, not `localhost`, on the other
@@ -36,7 +37,7 @@ inside the ZIP viewer.
 Open the exact `config.json` path in the error, correct the reported line and
 column (trailing commas are not valid JSON), then start Keivotos again. The same
 diagnostic is written to the dated
-`Documents\Keivotos\logs\waifu-hoard-runtime-YYYY-MM-DD_HH-MM-SS-pPID.log`
+`%LOCALAPPDATA%\Keivotos\logs\waifu-hoard-runtime-YYYY-MM-DD_HH-MM-SS-pPID.log`
 even when the normal logger could not start. Keivotos does not overwrite or
 discard a malformed user configuration automatically because it may contain
 the only pointers to a custom metadata or library location.
@@ -62,8 +63,8 @@ those features.
 ## Where is my data?
 
 Open the exact location shown in Settings → Library. Keivotos asks the Windows
-Known Folder API for Documents, so it may be under OneDrive, another drive, or
-a managed path rather than `C:\Users\<name>\Documents`. See
+Known Folder API for machine-local application data, normally
+`C:\Users\<name>\AppData\Local\Keivotos`. See
 [`data-layout.md`](data-layout.md) before moving, restoring, or backing up any
 files. Never delete `user.sqlite` as a cache.
 
