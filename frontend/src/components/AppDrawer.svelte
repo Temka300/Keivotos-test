@@ -2,6 +2,7 @@
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { prepareSettingsPresentation } from '../lib/settingsPresentation';
   import { loadSettingsModal, type SettingsModalModule } from '../lib/settingsLoader';
+  import { MODULE_DISPLAY_NAME, SUITE_NAME } from '../lib/product';
   import { activeCollectionId, selectedImageId, viewMode } from '../lib/stores';
 
   const dispatch = createEventDispatcher<{ close: void }>();
@@ -62,7 +63,7 @@
     <header class="flex h-[53px] items-center justify-between border-b border-[#292937] px-4">
       <div class="flex items-center gap-2.5">
         <img src="/keivotos-logo.png" alt="" class="h-8 w-8 rounded-lg shadow-[0_0_20px_rgba(85,217,255,0.22)]" />
-        <span class="text-lg font-semibold text-purple-100">Keivotos</span>
+        <span class="text-lg font-semibold text-purple-100">{SUITE_NAME}</span>
       </div>
       <button
         class="grid h-8 w-8 place-items-center rounded-full border border-[#303040] text-gray-400 transition-colors hover:border-purple-500/50 hover:bg-purple-500/10 hover:text-purple-100"
@@ -84,7 +85,7 @@
         on:click={openWaifuHoard}
       >
         <img src="/logo.svg" alt="" class="h-9 w-9 rounded-lg transition-transform group-hover:scale-105" />
-        <span class="min-w-0 flex-1 truncate">Waifu Hoard</span>
+        <span class="min-w-0 flex-1 truncate">{MODULE_DISPLAY_NAME}</span>
         <svg class="h-4 w-4 translate-x-0 text-gray-600 transition-transform group-hover:translate-x-1 group-hover:text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>

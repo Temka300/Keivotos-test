@@ -36,6 +36,17 @@ class MetadataBackupBundleTests(unittest.TestCase):
             connection = sqlite3.connect(path)
             connection.execute("CREATE TABLE marker(value TEXT)")
             connection.execute("INSERT INTO marker VALUES (?)", (value,))
+            if path == self.user_db:
+                connection.execute(
+                    """CREATE TABLE user_settings (
+                           key TEXT PRIMARY KEY,
+                           value TEXT NOT NULL,
+                           updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                       )"""
+                )
+                connection.execute(
+                    "INSERT INTO user_settings(key, value) VALUES ('profile_name', 'Backup Curator')"
+                )
             connection.commit()
             connection.close()
 
@@ -114,6 +125,10 @@ class MetadataBackupBundleTests(unittest.TestCase):
         for path, value in ((self.user_db, "user-mutated"), (self.data_db, "library-mutated")):
             connection = sqlite3.connect(path)
             connection.execute("UPDATE marker SET value=?", (value,))
+            if path == self.user_db:
+                connection.execute(
+                    "UPDATE user_settings SET value='Browser-Only Impostor' WHERE key='profile_name'"
+                )
             connection.commit()
             connection.close()
         (self.sidecars / "sample.json").write_text("mutated-sidecar", encoding="utf-8")
@@ -123,8 +138,17 @@ class MetadataBackupBundleTests(unittest.TestCase):
         for path, expected in ((self.user_db, "user-original"), (self.data_db, "library-original")):
             connection = sqlite3.connect(path)
             actual = connection.execute("SELECT value FROM marker").fetchone()[0]
+            profile_name = (
+                connection.execute(
+                    "SELECT value FROM user_settings WHERE key='profile_name'"
+                ).fetchone()[0]
+                if path == self.user_db
+                else None
+            )
             connection.close()
             self.assertEqual(actual, expected)
+            if path == self.user_db:
+                self.assertEqual(profile_name, "Backup Curator")
         self.assertEqual((self.sidecars / "sample.json").read_text(encoding="utf-8"), "original-sidecar")
         self.assertEqual(self.external_image.read_bytes(), b"original-image-must-stay")
         self.assertTrue(Path(restored["rollback_path"]).is_dir())

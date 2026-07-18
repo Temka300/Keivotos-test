@@ -12,6 +12,7 @@
   import BackupRestoreSettings from './BackupRestoreSettings.svelte';
   import LibraryImportSettings from './LibraryImportSettings.svelte';
   import ThumbnailCacheSettings from './ThumbnailCacheSettings.svelte';
+  import { MODULE_NAME, SUITE_NAME } from '../lib/product';
   import { prepareSettingsPresentation, restoreSettingsPresentation } from '../lib/settingsPresentation';
   import {
     activeRating,
@@ -80,7 +81,7 @@
   };
 
   const settingSearchItems: SettingSearchItem[] = [
-    { id: 'startup-view', section: 'browsing', label: 'Startup destination', description: 'Choose where Waifu-Hoard opens.', keywords: ['home', 'browse', 'last page', 'launch'] },
+    { id: 'startup-view', section: 'browsing', label: 'Startup destination', description: `Choose where ${MODULE_NAME} opens.`, keywords: ['home', 'browse', 'last page', 'launch'] },
     { id: 'home-layout', section: 'browsing', label: 'Home layout', description: 'Use the new discovery dashboard or restore the preserved classic Home.', keywords: ['home', 'classic', 'legacy', 'old design', 'discovery', 'dashboard'] },
     { id: 'rating-filter', section: 'browsing', label: 'Default rating', description: 'Choose the rating used for normal browsing.', keywords: ['general', 'sensitive', 'questionable', 'explicit', 'unrated'] },
     { id: 'browse-sort', section: 'browsing', label: 'Browse sort', description: 'Choose the persisted image order.', keywords: ['date', 'downloaded', 'score', 'views', 'name', 'size'] },
@@ -102,8 +103,8 @@
     { id: 'rescan', section: 'library', label: 'Re-scan library', description: 'Incrementally reconcile the local index.', keywords: ['sync', 'sqlite', 'changed', 'removed'] },
     { id: 'danbooru-access', section: 'metadata', label: 'Danbooru access', description: 'Manage encrypted credentials.', keywords: ['username', 'api key', 'credentials', 'connection'] },
     { id: 'automation', section: 'metadata', label: 'Local library watcher', description: 'Detect new or changed files without contacting Danbooru.', keywords: ['automatic', 'watcher', 'sidecar', 'interval', 'local'] },
-    { id: 'backup', section: 'safety', label: 'Manual metadata backup', description: 'Choose protected metadata components for the fixed Keivotos backup location.', keywords: ['snapshot', 'database', 'sidecar', 'destination', 'size'] },
-    { id: 'restore', section: 'safety', label: 'Restore metadata', description: 'Validate and restore a Keivotos backup bundle with rollback.', keywords: ['recovery', 'rollback', 'backup'] },
+    { id: 'backup', section: 'safety', label: 'Manual metadata backup', description: `Choose protected metadata components for the fixed ${SUITE_NAME} backup location.`, keywords: ['snapshot', 'database', 'sidecar', 'destination', 'size'] },
+    { id: 'restore', section: 'safety', label: 'Restore metadata', description: `Validate and restore a ${SUITE_NAME} backup bundle with rollback.`, keywords: ['recovery', 'rollback', 'backup'] },
     { id: 'local-recovery', section: 'safety', label: 'Automatic local recovery', description: 'Keep rotating user database checkpoints.', keywords: ['checkpoint', 'user sqlite', 'favorites', 'collections', 'automatic'] },
     { id: 'thumbnail-cache', section: 'safety', label: 'Thumbnail cache', description: 'Manage the three derived thumbnail tiers and size limit.', keywords: ['300', '600', '1200', 'cleanup', 'cache'] },
     { id: 'clean-sidecars', section: 'safety', label: 'Clean orphan sidecars', description: 'Remove metadata whose reachable media file is gone.', keywords: ['cleanup', 'orphan', 'metadata'] },

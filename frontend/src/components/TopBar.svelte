@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from '../lib/api';
+  import { MODULE_DISPLAY_NAME, SUITE_NAME } from '../lib/product';
   import { viewMode, sortBy, sortOrder, activeFolder, activeRating, activeTags, activeCollectionId, selectedImageId, fitMode, imageSize, imageSizeOptions, imagePageSize, imagePageSizeOptions, duplicatesOnly, duplicateScope, blacklistedTagNames, searchString, browseTagSelection, artistNotificationsEnabled } from '../lib/stores';
   import type { DuplicateScope, ViewMode } from '../lib/stores';
   import SearchBar from './SearchBar.svelte';
@@ -175,8 +176,8 @@
   <button
     class="p-1.5 rounded hover:bg-[#2a2a3a] transition-colors"
     on:click={() => showAppMenu = true}
-    title="Open Keivotos menu"
-    aria-label="Open Keivotos menu"
+    title="Open {SUITE_NAME} menu"
+    aria-label="Open {SUITE_NAME} menu"
   >
     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
@@ -195,7 +196,7 @@
       decoding="async"
     />
     <span class="text-lg font-semibold {$viewMode === 'home' ? 'text-purple-100' : 'text-purple-300 group-hover:text-purple-100'}">
-      Waifu Hoard
+      {MODULE_DISPLAY_NAME}
     </span>
   </button>
 

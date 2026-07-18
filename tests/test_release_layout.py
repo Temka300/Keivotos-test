@@ -13,6 +13,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "backend"))
+
+from product import DISPLAY_NAME, VERSION  # noqa: E402
 
 
 @contextmanager
@@ -224,9 +227,16 @@ class ReleaseLayoutTests(unittest.TestCase):
             )
             environment = {**os.environ, "KEIVOTOS_HOME": str(temporary)}
             code = (
-                "import sys; "
+                "import json, sys; from pathlib import Path; "
                 f"sys.path.insert(0, {str(ROOT / 'backend')!r}); "
-                "import config; print(config.get_backup_config()['destination'])"
+                "import config; "
+                "config.save_config({'thumbnail_cache_limit_gb': 5}); "
+                "saved=json.loads(Path(config.get_config_path()).read_text(encoding='utf-8')); "
+                "print(json.dumps({"
+                "'destination': config.get_backup_config()['destination'], "
+                "'snapshot_has_legacy': 'backup_destination' in config.runtime_config_snapshot(), "
+                "'saved_has_legacy': 'backup_destination' in saved"
+                "}))"
             )
             result = subprocess.run(
                 [sys.executable, "-c", code],
@@ -236,7 +246,10 @@ class ReleaseLayoutTests(unittest.TestCase):
                 capture_output=True,
                 check=True,
             )
-            self.assertEqual(Path(result.stdout.strip()), temporary / "backups" / "waifu-hoard")
+            status = json.loads(result.stdout)
+            self.assertEqual(Path(status["destination"]), temporary / "backups" / "waifu-hoard")
+            self.assertFalse(status["snapshot_has_legacy"])
+            self.assertFalse(status["saved_has_legacy"])
 
     def test_product_identity_and_portable_check(self) -> None:
         with isolated_home() as temporary:
@@ -249,7 +262,7 @@ class ReleaseLayoutTests(unittest.TestCase):
                 capture_output=True,
                 check=True,
             )
-            self.assertEqual(version.stdout.strip(), "Keivotos - Waifu-Hoard 1.0.0")
+            self.assertEqual(version.stdout.strip(), f"{DISPLAY_NAME} {VERSION}")
             portable = subprocess.run(
                 [sys.executable, "app.py", "--portable-check"],
                 cwd=ROOT,
@@ -279,10 +292,18 @@ class ReleaseLayoutTests(unittest.TestCase):
 
     def test_windows_release_cleanup_and_portable_smoke_are_guarded(self) -> None:
         script = (ROOT / "scripts" / "release" / "build_windows.ps1").read_text(encoding="utf-8")
+        version_script = (ROOT / "scripts" / "release" / "set_version.py").read_text(encoding="utf-8")
         self.assertIn("$RepositoryPrefix", script)
         self.assertIn("$CleanupPaths", script)
         self.assertLess(script.index("foreach ($Path in $CleanupPaths)"), script.index("Remove-Item -LiteralPath $Path -Recurse -Force"))
         self.assertNotIn("$ResolvedParent.StartsWith($Root", script)
+        self.assertIn('Get-Content -LiteralPath (Join-Path $Root "backend\\product.py") -Raw', script)
+        self.assertIn("does not match product.py version", script)
+        self.assertIn("Get-Command uv -ErrorAction SilentlyContinue", script)
+        self.assertIn('$UserProfileDirectory ".local\\bin\\uv.exe"', script)
+        self.assertIn("& $UvPath sync --locked --python 3.11 --group build", script)
+        self.assertIn('[str(uv), "lock", "--project", str(ROOT)]', version_script)
+        self.assertIn('"uv.lock, package.json, package-lock.json', version_script)
         self.assertIn("Start-Process -FilePath $Executable", script)
         self.assertIn("-WindowStyle Hidden -PassThru", script)
         self.assertIn("Invoke-WebRequest", script)
@@ -298,7 +319,7 @@ class ReleaseLayoutTests(unittest.TestCase):
     def test_launcher_and_brand_assets_use_the_keivotos_defaults(self) -> None:
         sys.path.insert(0, str(ROOT / "backend"))
         try:
-            from product import DEFAULT_HOST, DEFAULT_ORIGIN, DEFAULT_PORT, DISPLAY_NAME, WEB_TITLE
+            from product import DEFAULT_HOST, DEFAULT_ORIGIN, DEFAULT_PORT, DISPLAY_NAME, MODULE_NAME, SUITE_NAME, WEB_TITLE
         finally:
             sys.path.pop(0)
         self.assertEqual((DEFAULT_HOST, DEFAULT_PORT), ("localhost", 52325))
@@ -325,11 +346,38 @@ class ReleaseLayoutTests(unittest.TestCase):
         )
         user_menu = (ROOT / "frontend" / "src" / "components" / "UserMenu.svelte").read_text(encoding="utf-8")
         profile_view = (ROOT / "frontend" / "src" / "components" / "ProfileView.svelte").read_text(encoding="utf-8")
+        stores = (ROOT / "frontend" / "src" / "lib" / "stores.ts").read_text(encoding="utf-8")
+        frontend_product = (ROOT / "frontend" / "src" / "lib" / "product.ts").read_text(encoding="utf-8")
         app_drawer = (ROOT / "frontend" / "src" / "components" / "AppDrawer.svelte").read_text(encoding="utf-8")
         self.assertIn('src="/profile-avatar.svg"', user_menu)
         self.assertNotIn('src="/keivotos-logo.png"', user_menu)
         self.assertIn(": '/profile-avatar.svg';", profile_view)
         self.assertIn('<img src="/profile-avatar.svg" alt="" class="h-9 w-9', app_drawer)
+        self.assertNotIn("Temka300", profile_view)
+        self.assertIn("{$profileName}", profile_view)
+        self.assertIn('aria-label="Edit profile name"', profile_view)
+        self.assertIn('maxlength="40"', profile_view)
+        self.assertIn("profileName.load()", profile_view)
+        self.assertIn(f"export const SUITE_NAME = {SUITE_NAME!r};", frontend_product)
+        self.assertIn(f"export const MODULE_NAME = {MODULE_NAME!r};", frontend_product)
+        self.assertIn("export const MODULE_DISPLAY_NAME = MODULE_NAME.replace('-', ' ');", frontend_product)
+        self.assertIn("export const DEFAULT_PROFILE_NAME = SUITE_NAME;", frontend_product)
+        self.assertIn("export const STORAGE_PREFIX = 'waifu-hoard:';", frontend_product)
+        for component_name in (
+            "AppDrawer.svelte",
+            "AppSettingsModal.svelte",
+            "BackupRestoreSettings.svelte",
+            "TopBar.svelte",
+        ):
+            component = (
+                ROOT / "frontend" / "src" / "components" / component_name
+            ).read_text(encoding="utf-8")
+            self.assertNotIn(SUITE_NAME, component)
+            self.assertNotIn(MODULE_NAME, component)
+            self.assertNotIn(MODULE_NAME.replace("-", " "), component)
+        self.assertNotIn("waifu-hoard:", stores)
+        self.assertIn("api.getUserSetting('profile_name')", stores)
+        self.assertIn("api.putUserSetting('profile_name'", stores)
 
         launcher = (ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn('CONSOLE_ICON_PATH = ROOT / "assets" / "branding" / "keivotos" / "keivotos.ico"', launcher)

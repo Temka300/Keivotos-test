@@ -405,6 +405,15 @@ class Stats(BaseModel):
     profile_banner_token: str | None = None
 
 
+class UserSetting(BaseModel):
+    key: str
+    value: str
+
+
+class UserSettingUpdate(BaseModel):
+    value: str = Field(max_length=200)
+
+
 class CollectionPreviewItem(BaseModel):
     file_id: int
     thumbnail_token: str | None = None

@@ -11,6 +11,7 @@
     type HomeTagInfo,
     type HomeTags,
   } from '../lib/api';
+  import { persistentStorageKey } from '../lib/product';
   import {
     activeCollectionId,
     activeFolder,
@@ -348,7 +349,7 @@
   }
 
   function homeStorageKey(ratingKey: string, kind: 'tags' | 'rails') {
-    return `waifu-hoard:home:${homeCacheVersion}:${kind}:${ratingKey || 'all'}`;
+    return persistentStorageKey(`home:${homeCacheVersion}:${kind}:${ratingKey || 'all'}`);
   }
 
   function loadCachedHome(ratingKey: string) {

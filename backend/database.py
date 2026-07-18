@@ -458,6 +458,12 @@ def init_user_db() -> None:
                 added_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
 
+            CREATE TABLE IF NOT EXISTS user_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
         """)
         _upgrade_user_identity_storage(conn)
         conn.commit()

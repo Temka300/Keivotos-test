@@ -10,6 +10,7 @@
     type TagWikiInfo,
     type TagWikiTextLine,
   } from '../lib/api';
+  import { persistentStorageKey } from '../lib/product';
   import { activeTags, artistFollowRefreshToken, browseTagSelection, selectedArtistProfileAsset, selectedImageId, tagBannerHeight, tagRefreshToken, viewMode } from '../lib/stores';
   import type { BrowseTagSelection } from '../lib/stores';
 
@@ -109,7 +110,7 @@
   }
 
   function coverStorageKey(value: BrowseTagSelection) {
-    return `waifu-hoard:tag-cover:${coverStorageVersion}:${tagKey(value)}`;
+    return persistentStorageKey(`tag-cover:${coverStorageVersion}:${tagKey(value)}`);
   }
 
   function emptyWikiInfo(value: BrowseTagSelection, error: string | null = null): TagWikiInfo {

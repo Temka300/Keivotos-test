@@ -236,7 +236,7 @@ def _rebase_migrated_config(config_path: Path, source_home: Path, destination_ho
         return False
     config = _read_json(config_path)
     changed = False
-    for key in ("data_root", "metadata_dir", "gallery_dl_dir", "backup_destination"):
+    for key in ("data_root", "metadata_dir", "gallery_dl_dir"):
         value = config.get(key)
         if not isinstance(value, str) or not value.strip():
             continue
@@ -333,6 +333,7 @@ def _load() -> dict[str, Any]:
     if "KEIVOTOS_HOME" in os.environ:
         config.update(_external_path_defaults)
     config.update(_read_json(RUNTIME_CONFIG_FILE))
+    config.pop("backup_destination", None)
     return config
 
 
@@ -412,19 +413,23 @@ SCAN_FOLDERS: list[str] = _string_list(_cfg.get("scan_folders"))
 def save_config(overrides: dict[str, Any]) -> None:
     """Persist user overrides outside the source tree and packaged app."""
     current = _read_json(RUNTIME_CONFIG_FILE)
-    current.update(overrides)
+    current.pop("backup_destination", None)
+    sanitized = dict(overrides)
+    sanitized.pop("backup_destination", None)
+    current.update(sanitized)
     RUNTIME_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     temporary = RUNTIME_CONFIG_FILE.with_suffix(".json.tmp")
     with temporary.open("w", encoding="utf-8") as handle:
         json.dump(current, handle, indent=2, ensure_ascii=False)
         handle.write("\n")
     temporary.replace(RUNTIME_CONFIG_FILE)
-    _cfg.update(overrides)
+    _cfg.pop("backup_destination", None)
+    _cfg.update(sanitized)
 
 
 def runtime_config_snapshot() -> dict[str, Any]:
     """Return the effective, non-secret settings suitable for a backup bundle."""
-    private_paths = {"data_root", "metadata_dir", "gallery_dl_dir", "backup_destination"}
+    private_paths = {"data_root", "metadata_dir", "gallery_dl_dir"}
     return {
         key: value
         for key, value in _cfg.items()

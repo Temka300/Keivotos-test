@@ -7,6 +7,7 @@
     type DailyChallengeOption,
     type TagInfo,
   } from '../lib/api';
+  import { persistentStorageKey } from '../lib/product';
   import { activeRating, activeTags, selectedImageId, viewMode } from '../lib/stores';
   import HomeBreadcrumbBack from './HomeBreadcrumbBack.svelte';
 
@@ -66,7 +67,7 @@
   }
 
   function storageKey(item: DailyChallenge) {
-    return `waifu-hoard:daily-challenge-v2:${item.challenge_id}`;
+    return persistentStorageKey(`daily-challenge-v2:${item.challenge_id}`);
   }
 
   function loadSavedState(item: DailyChallenge) {

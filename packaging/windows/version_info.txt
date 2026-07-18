@@ -16,12 +16,12 @@ VSVersionInfo(
         [
           StringStruct("CompanyName", "Keivotos contributors"),
           StringStruct("FileDescription", "Keivotos - Waifu-Hoard"),
-          StringStruct("FileVersion", "1.0.0"),
+          StringStruct("FileVersion", "1.0.0-pre5"),
           StringStruct("InternalName", "Keivotos"),
           StringStruct("LegalCopyright", "Copyright 2026 Keivotos contributors"),
           StringStruct("OriginalFilename", "Keivotos.exe"),
           StringStruct("ProductName", "Keivotos"),
-          StringStruct("ProductVersion", "1.0.0"),
+          StringStruct("ProductVersion", "1.0.0-pre5"),
         ],
       )
     ]),

@@ -5,11 +5,15 @@ import sqlite3
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
+import database  # noqa: E402
+from models import UserSettingUpdate  # noqa: E402
+from routers import stats  # noqa: E402
 from schema import ensure_data_schema  # noqa: E402
 
 
@@ -41,6 +45,31 @@ class SharedSchemaTests(unittest.TestCase):
         self.assertIn("root_id", columns)
         self.assertIn("relative_path", columns)
         self.assertIn("idx_files_root_relative", indexes)
+
+        user_database = self.temp / "user.sqlite"
+        missing_data_database = self.temp / "missing-data.sqlite"
+        with (
+            patch.object(database, "USER_DB_PATH", user_database),
+            patch.object(database, "DATA_DB_PATH", missing_data_database),
+        ):
+            database.init_user_db()
+            with database.get_user_db() as user_connection:
+                tables = {
+                    row["name"]
+                    for row in user_connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    )
+                }
+            self.assertIn("user_settings", tables)
+            self.assertEqual(stats.get_user_setting("profile_name").value, "Keivotos")
+            saved = stats.put_user_setting(
+                "profile_name",
+                UserSettingUpdate(value="  Local Curator  "),
+            )
+            self.assertEqual(saved.value, "Local Curator")
+            self.assertEqual(stats.get_user_setting("profile_name").value, "Local Curator")
+            reset = stats.put_user_setting("profile_name", UserSettingUpdate(value="   "))
+            self.assertEqual(reset.value, "Keivotos")
 
 
 if __name__ == "__main__":

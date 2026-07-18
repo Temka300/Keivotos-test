@@ -17,11 +17,12 @@
     browseTagSelection,
     collectionRefreshToken,
     imageRefreshToken,
+    normalizeProfileName,
+    profileName,
     selectedImageId,
     viewMode,
   } from '../lib/stores';
 
-  const profileName = 'Temka300';
   const favoritePreviewLimit = 9;
   const collectionPreviewLimit = 6;
   const artistExpandThreshold = 10;
@@ -45,6 +46,9 @@
   let artistRailCanScrollRight = false;
   let artistProfileBulkBusy = false;
   let artistProfileBulkStatus = '';
+  let editingProfileName = false;
+  let profileNameDraft = '';
+  let profileNameInput: HTMLInputElement | null = null;
 
   $: avatarUrl = stats?.profile_avatar_file_id
     ? thumbnailUrl(stats.profile_avatar_file_id, 360, stats.profile_avatar_token ?? undefined)
@@ -96,6 +100,34 @@
     });
   }
 
+  async function beginProfileNameEdit() {
+    profileNameDraft = $profileName;
+    editingProfileName = true;
+    await tick();
+    profileNameInput?.focus();
+    profileNameInput?.select();
+  }
+
+  async function saveProfileName() {
+    try {
+      await profileName.set(normalizeProfileName(profileNameDraft));
+      editingProfileName = false;
+    } catch (caught) {
+      error = caught instanceof Error ? caught.message : 'Could not save the profile name.';
+    }
+  }
+
+  function cancelProfileNameEdit() {
+    profileNameDraft = $profileName;
+    editingProfileName = false;
+  }
+
+  function handleProfileNameKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    cancelProfileNameEdit();
+  }
+
   async function loadProfile(showLoader = false) {
     if (showLoader) loading = true;
     error = '';
@@ -111,6 +143,7 @@
         }),
         api.getCollections(),
         api.getArtistFollows(),
+        profileName.load(),
       ]);
       stats = nextStats;
       favorites = favoritePage.images;
@@ -419,7 +452,32 @@
           />
         </div>
         <div class="mb-2 min-w-0">
-          <div class="text-3xl font-bold text-white drop-shadow">{profileName}</div>
+          {#if editingProfileName}
+            <form class="flex max-w-full items-center gap-2" on:submit|preventDefault={saveProfileName}>
+              <input
+                bind:this={profileNameInput}
+                bind:value={profileNameDraft}
+                class="min-w-0 max-w-sm rounded-lg border border-purple-300/50 bg-black/55 px-3 py-1.5 text-2xl font-bold text-white outline-none shadow-lg shadow-black/30 focus:border-purple-200"
+                type="text"
+                maxlength="40"
+                aria-label="Profile name"
+                on:keydown={handleProfileNameKeydown}
+              />
+              <button class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-green-300/30 bg-green-500/15 text-green-100 transition-colors hover:bg-green-500/25" type="submit" title="Save profile name" aria-label="Save profile name">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+              </button>
+              <button class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/15 bg-black/35 text-gray-300 transition-colors hover:bg-white/10 hover:text-white" type="button" on:click={cancelProfileNameEdit} title="Cancel profile name edit" aria-label="Cancel profile name edit">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6L6 18" /></svg>
+              </button>
+            </form>
+          {:else}
+            <div class="flex min-w-0 items-center gap-2">
+              <div class="truncate text-3xl font-bold text-white drop-shadow">{$profileName}</div>
+              <button class="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/15 bg-black/30 text-gray-300 opacity-80 transition-all hover:border-purple-300/40 hover:bg-purple-500/15 hover:text-white hover:opacity-100" type="button" on:click={beginProfileNameEdit} title="Edit profile name" aria-label="Edit profile name">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.862 3.487a2.1 2.1 0 113 2.97L8.28 18.158 4 19.5l1.35-4.24L16.862 3.487zM14.75 5.6l3 2.98" /></svg>
+              </button>
+            </div>
+          {/if}
           <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-300">
             <span class="rounded border border-white/10 bg-black/35 px-2 py-1">Local library</span>
             <span class="rounded border border-white/10 bg-black/35 px-2 py-1">{stats ? formatNumber(stats.total_images) : '0'} images</span>

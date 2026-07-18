@@ -364,6 +364,11 @@ export interface FolderRemovalResult {
   sidecar_history_preserved: boolean;
 }
 
+export interface UserSetting {
+  key: string;
+  value: string;
+}
+
 export interface CollectionPreviewItem {
   file_id: number;
   thumbnail_token: string | null;
@@ -645,6 +650,12 @@ export const api = {
     del<FolderRemovalResult>(`/folders/${encodeURIComponent(name)}`, { mode }),
 
   getStats: () => get<Stats>('/stats'),
+
+  getUserSetting: (key: string) =>
+    get<UserSetting>(`/user-settings/${encodeURIComponent(key)}`),
+
+  putUserSetting: (key: string, value: string) =>
+    put<UserSetting>(`/user-settings/${encodeURIComponent(key)}`, { value }),
 
   toggleFavorite: (fileId: number) =>
     post<{ status: string; added_at: string | null }>(`/favorites/${fileId}`),

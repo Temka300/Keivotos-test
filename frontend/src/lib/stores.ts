@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
-import type { ArtistProfileAsset } from './api';
+import { api, type ArtistProfileAsset } from './api';
+import { DEFAULT_PROFILE_NAME, persistentStorageKey } from './product';
 
 export type ViewMode = 'home' | 'profile' | 'gallery' | 'favorites' | 'collections' | 'collection-detail' | 'tags' | 'popularity' | 'timelapse' | 'challenges';
 export type FitMode = 'fit' | 'contain';
@@ -167,6 +168,12 @@ function normalizeArtistNotificationInterval(value: unknown): ArtistNotification
   return value === 5 || value === 30 || value === 60 ? value : 15;
 }
 
+export function normalizeProfileName(value: unknown): string {
+  if (typeof value !== 'string') return DEFAULT_PROFILE_NAME;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, 40) : DEFAULT_PROFILE_NAME;
+}
+
 function readStoredValue(key: string): unknown {
   if (typeof localStorage === 'undefined') return null;
   const stored = localStorage.getItem(key);
@@ -178,14 +185,65 @@ function readStoredValue(key: string): unknown {
   }
 }
 
-export const startupView = persistedWritable<StartupView>('waifu-hoard:startup-view', 'home', normalizeStartupView);
-export const homeLayout = persistedWritable<HomeLayout>('waifu-hoard:home-layout', 'discovery', normalizeHomeLayout);
+const legacyProfileNameStorageKey = persistentStorageKey('profile-name');
+const legacyProfileName = normalizeProfileName(readStoredValue(legacyProfileNameStorageKey));
+const profileNameWritable = writable<string>(legacyProfileName);
+let currentProfileName = legacyProfileName;
+let profileNameLoad: Promise<string> | null = null;
+
+function setCurrentProfileName(value: string) {
+  currentProfileName = normalizeProfileName(value);
+  profileNameWritable.set(currentProfileName);
+}
+
+async function loadProfileName(): Promise<string> {
+  if (!profileNameLoad) {
+    profileNameLoad = (async () => {
+      const setting = await api.getUserSetting('profile_name');
+      let value = normalizeProfileName(setting.value);
+      if (value === DEFAULT_PROFILE_NAME && legacyProfileName !== DEFAULT_PROFILE_NAME) {
+        value = normalizeProfileName((await api.putUserSetting('profile_name', legacyProfileName)).value);
+      }
+      setCurrentProfileName(value);
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(legacyProfileNameStorageKey);
+      return currentProfileName;
+    })().catch(error => {
+      profileNameLoad = null;
+      throw error;
+    });
+  }
+  return profileNameLoad;
+}
+
+async function saveProfileName(value: string): Promise<string> {
+  const previous = currentProfileName;
+  const normalized = normalizeProfileName(value);
+  setCurrentProfileName(normalized);
+  try {
+    const saved = await api.putUserSetting('profile_name', normalized);
+    setCurrentProfileName(saved.value);
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(legacyProfileNameStorageKey);
+    return currentProfileName;
+  } catch (error) {
+    setCurrentProfileName(previous);
+    throw error;
+  }
+}
+
+export const profileName = {
+  subscribe: profileNameWritable.subscribe,
+  load: loadProfileName,
+  set: saveProfileName,
+};
+
+export const startupView = persistedWritable<StartupView>(persistentStorageKey('startup-view'), 'home', normalizeStartupView);
+export const homeLayout = persistedWritable<HomeLayout>(persistentStorageKey('home-layout'), 'discovery', normalizeHomeLayout);
 
 function initialViewMode(): ViewMode {
-  const startup = normalizeStartupView(readStoredValue('waifu-hoard:startup-view'));
+  const startup = normalizeStartupView(readStoredValue(persistentStorageKey('startup-view')));
   if (startup === 'gallery') return 'gallery';
   if (startup === 'last') {
-    const last = readStoredValue('waifu-hoard:last-view');
+    const last = readStoredValue(persistentStorageKey('last-view'));
     const safeViews: ViewMode[] = ['home', 'profile', 'gallery', 'favorites', 'collections', 'tags', 'popularity', 'timelapse', 'challenges'];
     if (safeViews.includes(last as ViewMode)) return last as ViewMode;
   }
@@ -196,14 +254,14 @@ export const viewMode = writable<ViewMode>(initialViewMode());
 if (typeof localStorage !== 'undefined') {
   viewMode.subscribe(value => {
     const safeValue = value === 'collection-detail' ? 'collections' : value;
-    localStorage.setItem('waifu-hoard:last-view', JSON.stringify(safeValue));
+    localStorage.setItem(persistentStorageKey('last-view'), JSON.stringify(safeValue));
   });
 }
 export const activeFolder = writable<string | null>(null);
 export const activeFolderLabel = writable<string | null>(null);
-export const activeRating = persistedWritable<string | null>('waifu-hoard:active-rating', 'g', normalizeRating);
-export const sortBy = persistedWritable<string>('waifu-hoard:browse-sort', 'date', normalizeSortBy);
-export const sortOrder = persistedWritable<string>('waifu-hoard:browse-sort-order', 'desc', normalizeSortOrder);
+export const activeRating = persistedWritable<string | null>(persistentStorageKey('active-rating'), 'g', normalizeRating);
+export const sortBy = persistedWritable<string>(persistentStorageKey('browse-sort'), 'date', normalizeSortBy);
+export const sortOrder = persistedWritable<string>(persistentStorageKey('browse-sort-order'), 'desc', normalizeSortOrder);
 export const selectedImageId = writable<number | null>(null);
 export const selectedArtistProfileAsset = writable<ArtistProfileAsset | null>(null);
 export const visibleImageIds = writable<number[]>([]);
@@ -214,18 +272,18 @@ export const artistFollowRefreshToken = writable(0);
 export const artistFocusRequest = writable<string | null>(null);
 export const deletedImageId = writable<number | null>(null);
 export const activeCollectionId = writable<number | null>(null);
-export const sidebarOpen = persistedWritable<boolean>('waifu-hoard:sidebar-open', true, normalizeBoolean);
-export const sidebarHandlePosition = persistedWritable<number>('waifu-hoard:sidebar-handle-position', 50, normalizeSidebarHandlePosition);
-export const fitMode = persistedWritable<FitMode>('waifu-hoard:fit-mode', 'fit', normalizeFitMode);
-export const imageSize = persistedWritable<ImageSize>('waifu-hoard:image-size', 'medium', normalizeImageSize);
-export const imagePageSize = persistedWritable<ImagePageSize>('waifu-hoard:image-page-size', 10, normalizeImagePageSize);
-export const mediaPlayback = persistedWritable<MediaPlayback>('waifu-hoard:media-autoplay', 'always', normalizeMediaPlayback);
-export const heartSpamEnabled = persistedWritable<boolean>('waifu-hoard:heart-spam-enabled', false, normalizeBooleanFalse);
-export const artistNotificationsEnabled = persistedWritable<boolean>('waifu-hoard:artist-notifications-enabled', true, normalizeBoolean);
-export const artistNotificationIntervalMinutes = persistedWritable<ArtistNotificationIntervalMinutes>('waifu-hoard:artist-notification-interval', 15, normalizeArtistNotificationInterval);
-export const motionPreference = persistedWritable<MotionPreference>('waifu-hoard:motion-preference', 'system', normalizeMotionPreference);
-export const interfaceScale = persistedWritable<InterfaceScale>('waifu-hoard:interface-scale', 'default', normalizeInterfaceScale);
-export const tagBannerHeight = persistedWritable<number>('waifu-hoard:tag-banner-height', 520, normalizeTagBannerHeight);
+export const sidebarOpen = persistedWritable<boolean>(persistentStorageKey('sidebar-open'), true, normalizeBoolean);
+export const sidebarHandlePosition = persistedWritable<number>(persistentStorageKey('sidebar-handle-position'), 50, normalizeSidebarHandlePosition);
+export const fitMode = persistedWritable<FitMode>(persistentStorageKey('fit-mode'), 'fit', normalizeFitMode);
+export const imageSize = persistedWritable<ImageSize>(persistentStorageKey('image-size'), 'medium', normalizeImageSize);
+export const imagePageSize = persistedWritable<ImagePageSize>(persistentStorageKey('image-page-size'), 10, normalizeImagePageSize);
+export const mediaPlayback = persistedWritable<MediaPlayback>(persistentStorageKey('media-autoplay'), 'always', normalizeMediaPlayback);
+export const heartSpamEnabled = persistedWritable<boolean>(persistentStorageKey('heart-spam-enabled'), false, normalizeBooleanFalse);
+export const artistNotificationsEnabled = persistedWritable<boolean>(persistentStorageKey('artist-notifications-enabled'), true, normalizeBoolean);
+export const artistNotificationIntervalMinutes = persistedWritable<ArtistNotificationIntervalMinutes>(persistentStorageKey('artist-notification-interval'), 15, normalizeArtistNotificationInterval);
+export const motionPreference = persistedWritable<MotionPreference>(persistentStorageKey('motion-preference'), 'system', normalizeMotionPreference);
+export const interfaceScale = persistedWritable<InterfaceScale>(persistentStorageKey('interface-scale'), 'default', normalizeInterfaceScale);
+export const tagBannerHeight = persistedWritable<number>(persistentStorageKey('tag-banner-height'), 520, normalizeTagBannerHeight);
 export const duplicatesOnly = writable(false);
 export const duplicateScope = writable<DuplicateScope>('all');
 

@@ -1,14 +1,44 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "",
     [string]$OutputDirectory = "artifacts"
 )
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
+$ProductSource = Get-Content -LiteralPath (Join-Path $Root "backend\product.py") -Raw
+$ProductVersionMatch = [regex]::Match($ProductSource, '(?m)^VERSION = "([^"]+)"\r?$')
+if (-not $ProductVersionMatch.Success) {
+    throw "Could not read VERSION from backend\product.py"
+}
+$ProductVersion = $ProductVersionMatch.Groups[1].Value
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = $ProductVersion
+}
+elseif ($Version -cne $ProductVersion) {
+    throw "Requested artifact version $Version does not match product.py version $ProductVersion"
+}
 if ($Version -notmatch '^[0-9]+(?:\.[0-9]+){2}[A-Za-z0-9._-]*$') {
     throw "Version contains unsafe path characters: $Version"
 }
+
+$UvCommand = Get-Command uv -ErrorAction SilentlyContinue | Select-Object -First 1
+$UvCandidates = @()
+if ($null -ne $UvCommand -and $UvCommand.CommandType -eq "Application") {
+    $UvCandidates += $UvCommand.Path
+}
+$UserProfileDirectory = [Environment]::GetFolderPath("UserProfile")
+$LocalApplicationDataDirectory = [Environment]::GetFolderPath("LocalApplicationData")
+$UvCandidates += @(
+    (Join-Path $UserProfileDirectory ".local\bin\uv.exe"),
+    (Join-Path $UserProfileDirectory ".cargo\bin\uv.exe"),
+    (Join-Path $LocalApplicationDataDirectory "Programs\uv\uv.exe")
+)
+$UvPath = $UvCandidates | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } | Select-Object -First 1
+if (-not $UvPath) {
+    throw "uv was not found on PATH or in the standard per-user install locations"
+}
+$UvPath = (Resolve-Path -LiteralPath $UvPath).Path
 $PackagingRoot = Join-Path $Root "packaging\windows"
 $DistRoot = Join-Path $PackagingRoot "dist"
 $WorkRoot = Join-Path $PackagingRoot "build"
@@ -118,7 +148,8 @@ foreach ($Path in $CleanupPaths) {
 
 Push-Location $Root
 try {
-    uv sync --locked --python 3.11 --group build
+    & $UvPath sync --locked --python 3.11 --group build
+    if ($LASTEXITCODE -ne 0) { throw "uv sync failed with exit code $LASTEXITCODE" }
     Push-Location (Join-Path $Root "frontend")
     try {
         npm.cmd ci

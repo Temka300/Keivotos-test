@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, type BackupComponents, type BackupConfiguration, type BackupEstimate, type BackupManifest, type LocalRecoveryStatus } from '../lib/api';
+  import { MODULE_NAME } from '../lib/product';
 
   export let toolRunning = false;
 
@@ -129,7 +130,7 @@
   async function restoreSelected() {
     if (!selectedBackup || busy || toolRunning) return;
     if (!(await inspectSelected())) return;
-    if (!confirm(`Restore ${selectedBackup}? Waifu-Hoard will preserve the current metadata in a rollback folder and will never touch external images.`)) return;
+    if (!confirm(`Restore ${selectedBackup}? ${MODULE_NAME} will preserve the current metadata in a rollback folder and will never touch external images.`)) return;
     busy = true;
     error = '';
     message = '';
