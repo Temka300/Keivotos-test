@@ -26,9 +26,11 @@ error output visible. The browser then opens at <http://localhost:52325/>.
 ## Trusted devices on the same network
 
 Source runs can explicitly allow phones, tablets, and other computers on the
-same private network:
+same private network. The flag is double opt-in: it only exists when the
+`KEIVOTOS_DEVELOPER_LAN` environment variable is set:
 
 ```powershell
+$env:KEIVOTOS_DEVELOPER_LAN = "1"
 .\run.bat --lan
 ```
 

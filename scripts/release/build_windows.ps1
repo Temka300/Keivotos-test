@@ -173,9 +173,10 @@ try {
     Copy-Item -LiteralPath (Join-Path $DistRoot "gallery-dl.exe") -Destination (Join-Path $StageRoot "gallery-dl.exe")
     $FfmpegPath = (& .\.venv\Scripts\python.exe -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())").Trim()
     Copy-Item -LiteralPath $FfmpegPath -Destination (Join-Path $StageRoot "ffmpeg.exe")
-    foreach ($File in @("README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "SECURITY.md")) {
+    foreach ($File in @("README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md")) {
         Copy-Item -LiteralPath (Join-Path $Root $File) -Destination (Join-Path $StageRoot $File)
     }
+    Copy-Item -LiteralPath (Join-Path $Root ".github\SECURITY.md") -Destination (Join-Path $StageRoot "SECURITY.md")
     New-Item -ItemType Directory -Path (Join-Path $StageRoot "docs") -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $Root "docs\user") -Destination (Join-Path $StageRoot "docs\user") -Recurse
     .\.venv\Scripts\python.exe .\scripts\release\collect_licenses.py (Join-Path $StageRoot "licenses")

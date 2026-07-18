@@ -14,7 +14,6 @@ RASTER_MASTER = BRAND_DIR / "keivotos-logo.png"
 MODULE_MASTER = ROOT / "assets" / "branding" / "waifu-hoard" / "icon.svg"
 MODULE_PROFILE_MASTER = ROOT / "assets" / "branding" / "waifu-hoard" / "profile-avatar.svg"
 PUBLIC_DIR = ROOT / "frontend" / "public"
-DOCS_ASSETS = ROOT / "docs" / "assets"
 PACKAGING_ASSETS = ROOT / "packaging" / "windows" / "assets"
 
 NAVY = "#0b0c17"
@@ -98,7 +97,7 @@ def main() -> None:
         raise SystemExit(f"Missing transparent raster master: {RASTER_MASTER}")
     if not MODULE_MASTER.is_file():
         raise SystemExit(f"Missing Waifu-Hoard module mark: {MODULE_MASTER}")
-    for directory in (BRAND_DIR, PUBLIC_DIR, DOCS_ASSETS, PACKAGING_ASSETS):
+    for directory in (BRAND_DIR, PUBLIC_DIR, PACKAGING_ASSETS):
         directory.mkdir(parents=True, exist_ok=True)
 
     master = Image.open(RASTER_MASTER).convert("RGBA")
@@ -124,7 +123,6 @@ def main() -> None:
     social_preview(master, (1600, 500)).save(BRAND_DIR / "keivotos-banner.png", optimize=True)
     social = social_preview(master, (1280, 640))
     social.save(BRAND_DIR / "keivotos-social-preview.png", optimize=True)
-    social.save(DOCS_ASSETS / "keivotos-social-preview.png", optimize=True)
 
 if __name__ == "__main__":
     main()

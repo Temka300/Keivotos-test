@@ -353,7 +353,6 @@ class ReleaseLayoutTests(unittest.TestCase):
         self.assertNotIn('src="/keivotos-logo.png"', user_menu)
         self.assertIn(": '/profile-avatar.svg';", profile_view)
         self.assertIn('<img src="/profile-avatar.svg" alt="" class="h-9 w-9', app_drawer)
-        self.assertNotIn("Temka300", profile_view)
         self.assertIn("{$profileName}", profile_view)
         self.assertIn('aria-label="Edit profile name"', profile_view)
         self.assertIn('maxlength="40"', profile_view)

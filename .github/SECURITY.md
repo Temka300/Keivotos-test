@@ -1,18 +1,19 @@
 # Security policy
 
-## Supported version
+## Supported versions
 
-Security fixes target the current V1.x release line. Older development snapshots
-and unpackaged test builds are not supported.
+Security fixes go into the current release line only. Old development
+snapshots and test builds are not supported.
 
-## Reporting
+## Reporting a vulnerability
 
-Do not publish credentials, private media paths, local databases, or a working
-exploit in a public issue. Use the repository owner's private security-reporting
-channel when available. Otherwise, open a minimal issue requesting a private
-contact path without including sensitive details.
+Please don't put credentials, private media paths, local databases, or a
+working exploit in a public issue. Use GitHub's private vulnerability
+reporting (Security tab → "Report a vulnerability") if it is enabled on this
+repository; otherwise open a minimal issue asking for a private contact and
+leave the sensitive details out.
 
-Include the affected version, platform, impact, prerequisites, and the smallest
-safe reproduction. Keivotos is local-first, but browser/server boundaries,
-archive extraction, path validation, and external-tool invocation are still
-security-sensitive.
+Include the affected version, your platform, the impact, any prerequisites,
+and the smallest safe reproduction you have. Keivotos runs locally, but the
+browser/server boundary, archive extraction, path validation, and the
+gallery-dl/FFmpeg child processes are all still security-sensitive.

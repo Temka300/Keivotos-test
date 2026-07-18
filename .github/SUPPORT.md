@@ -1,12 +1,15 @@
 # Support
 
-Keivotos is community-maintained software. Before opening an issue:
+Keivotos is community-maintained. Before opening an issue:
 
-1. read `docs/user/installation.md` and `docs/user/troubleshooting.md`;
-2. confirm the issue still occurs on the current release;
-3. run the documented checks when using a source build; and
-4. remove credentials, personal paths, databases, and media from logs.
+1. Check [installation](../docs/user/installation.md) and
+   [troubleshooting](../docs/user/troubleshooting.md).
+2. Confirm the problem still happens on the current release.
+3. If you run from source, run the documented checks first.
+4. Strip credentials, personal paths, databases, and media from any logs you
+   attach.
 
-Use bug reports for reproducible failures and discussions or feature requests
-for design ideas. Requests involving data deletion, migration, large downloads,
-or external services should state the intended safety boundary explicitly.
+Use bug reports for reproducible failures; use discussions or feature requests
+for ideas. If your request involves deleting data, migrating it, large
+downloads, or external services, say explicitly where the safety line should
+be.

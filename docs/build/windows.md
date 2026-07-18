@@ -9,8 +9,11 @@ and easier to inspect than they would be in a single self-extracting binary.
 Install uv and Node.js, then run from the repository root:
 
 ```powershell
-.\scripts\release\build_windows.ps1 -Version "1.0.0"
+.\scripts\release\build_windows.ps1
 ```
+
+The version is read from `backend\product.py`. Passing `-Version` is optional
+and only asserts that it matches.
 
 The script:
 
