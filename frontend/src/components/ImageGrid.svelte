@@ -10,7 +10,6 @@
     activeFolder,
     activeRating,
     selectedImageId,
-    deletedImageId,
     imageRefreshToken,
     viewMode,
     activeCollectionId,
@@ -409,43 +408,6 @@
     }
   }
 
-  async function deleteSelectedImages() {
-    if (bulkBusy || selectedCount === 0) return;
-    const count = selectedCount;
-    const confirmed = window.confirm(
-      `Delete ${selectedImageLabel(count)} completely from the disk and remove sidecars? This cannot be undone.`
-    );
-    if (!confirmed) return;
-
-    const targets = [...selectedImages];
-    let deletedIds = new Set<number>();
-    let failed = 0;
-
-    bulkBusy = true;
-    bulkError = '';
-    bulkMessage = '';
-    try {
-      const result = await api.deleteImages(targets.map(image => image.id));
-      deletedIds = new Set(result.deleted_post_ids);
-      failed = Object.keys(result.errors).length;
-
-      if (deletedIds.size > 0) {
-        images = images.filter(image => !deletedIds.has(image.id));
-        total = Math.max(0, total - deletedIds.size);
-        selectedIds = new Set([...selectedIds].filter(id => !deletedIds.has(id)));
-        imageRefreshToken.update(n => n + 1);
-      }
-
-      if (failed > 0) {
-        bulkError = `Deleted ${deletedIds.size.toLocaleString()}, failed ${failed.toLocaleString()}`;
-      } else {
-        setSelectMode(false);
-      }
-    } finally {
-      bulkBusy = false;
-    }
-  }
-
   async function loadImages(options: { resetScroll?: boolean; showLoader?: boolean } = {}) {
     const { resetScroll = true, showLoader = true } = options;
     const requestId = ++requestSerial;
@@ -571,19 +533,8 @@
         return;
       }
 
-      const removedId = $deletedImageId;
-      if (removedId !== null) {
-        selectedImageId.set(null);
-      }
-
       if (ps === 'all') {
-        if (removedId !== null) {
-          images = images.filter(image => image.id !== removedId);
-          total = Math.max(0, total - 1);
-          deletedImageId.set(null);
-        } else {
-          loadImages({ resetScroll: false, showLoader: false });
-        }
+        loadImages({ resetScroll: false, showLoader: false });
         return;
       }
 
@@ -593,9 +544,6 @@
           if (container) container.scrollTop = scrollTop;
         });
       });
-      if (removedId !== null) {
-        deletedImageId.set(null);
-      }
     }
   }
 
@@ -934,18 +882,6 @@
             </div>
           {/if}
         </div>
-
-        <button
-          class="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-600/15 px-3 py-2 text-sm text-red-300 transition-colors hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={bulkBusy}
-          on:click={deleteSelectedImages}
-          title="Delete selected images from disk"
-        >
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12m-9 0V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0v13a1 1 0 01-1 1H7a1 1 0 01-1-1V7m3 4v6m6-6v6"/>
-          </svg>
-          Delete
-        </button>
 
         <button
           class="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border border-[#2a2a3a] bg-[#1e1e2e] text-gray-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"

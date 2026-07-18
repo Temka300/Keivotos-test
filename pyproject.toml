@@ -1,7 +1,7 @@
 [project]
 name = "keivotos"
-version = "1.0.0-pre5"
-description = "Local-first personal media archive suite, beginning with Waifu-Hoard."
+version = "1.0.0"
+description = "Local-first personal media archive suite, beginning with Danbooru."
 readme = "README.md"
 requires-python = "==3.11.*"
 license = "Apache-2.0"

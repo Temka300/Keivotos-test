@@ -3,14 +3,14 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 A local gallery for your own image and video collection. Keivotos ships with
-**Waifu-Hoard**, a Danbooru-style browser for files that already live on your
+**Danbooru**, a Danbooru-style browser for files that already live on your
 disk. No account, no cloud, no upload — point it at your folders and browse.
 
 ## Why Keivotos?
 
 Booru sites are great for finding art but terrible for keeping it. Once you
 save files locally you lose the tags, the search, and the related-post links.
-Waifu-Hoard puts that back: it indexes your folders in place, matches files
+Danbooru puts that back: it indexes your folders in place, matches files
 against Danbooru by MD5 to recover their tags and metadata, and gives you the
 familiar tag search, ratings, and parent/child navigation over your own copy.
 Your originals are never moved or modified.

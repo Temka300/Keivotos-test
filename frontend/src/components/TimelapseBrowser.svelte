@@ -5,7 +5,6 @@
     activeFolder,
     activeRating,
     blacklistedTagNames,
-    deletedImageId,
     duplicateScope,
     duplicatesOnly,
     imageRefreshToken,
@@ -463,23 +462,6 @@
   }
   $: reloadSimpleIfNeeded(advancedMode, timelapseScope, activeTimelapseTag, $activeFolder, $activeRating, $blacklistedTagNames, $duplicatesOnly, $duplicateScope, $imageRefreshToken);
   $: reloadIfNeeded(advancedMode, timelapseScope, activeTimelapseTag, $activeFolder, $activeRating, $blacklistedTagNames, $duplicatesOnly, $duplicateScope, frameCount, $imageRefreshToken);
-  $: if ($deletedImageId !== null) {
-    const simpleBeforeCount = simpleFrames.length;
-    simpleFrames = simpleFrames.filter(image => image.id !== $deletedImageId);
-    if (simpleFrames.length !== simpleBeforeCount) {
-      simpleIndex = Math.min(simpleIndex, Math.max(simpleFrames.length - 1, 0));
-      simpleTotal = Math.max(0, simpleTotal - 1);
-    }
-
-    const beforeCount = frames.length;
-    frames = frames.filter(image => image.id !== $deletedImageId);
-    if (frames.length !== beforeCount) {
-      seek(Math.min(index, frames.length - 1));
-      total = Math.max(0, total - 1);
-      sampled = Math.max(0, sampled - 1);
-    }
-    deletedImageId.set(null);
-  }
 </script>
 
 <svelte:window on:keydown={handleWindowKeydown} />

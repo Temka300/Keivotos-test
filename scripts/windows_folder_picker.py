@@ -62,7 +62,7 @@ def _release(interface: ctypes.c_void_p | None) -> None:
         _method(interface, 2)(interface)
 
 
-def select_folder(title: str = "Add folder to Keivotos - Waifu-Hoard") -> str | None:
+def select_folder(title: str = "Add folder to Keivotos - Danbooru") -> str | None:
     if os.name != "nt":
         raise OSError("IFileOpenDialog is only available on Windows")
 

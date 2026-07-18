@@ -1,1 +1,1 @@
-"""Waifu-Hoard automated safety net."""
+"""Danbooru automated safety net."""

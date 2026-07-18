@@ -19,3 +19,5 @@ class OpenApiSnapshotTests(unittest.TestCase):
         current["info"]["version"] = None
         expected["info"]["version"] = None
         self.assertEqual(current, expected)
+        self.assertNotIn("/api/images/batch", current["paths"])
+        self.assertNotIn("delete", current["paths"]["/api/images/{post_id}"])

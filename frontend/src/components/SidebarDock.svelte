@@ -20,8 +20,7 @@
   onMount(() => {
     revealGrip(1600);
     // Render one closed frame before applying is-open so the 280ms slide
-    // plays on Browse/Tags entry (Beta3.1 behavior lost in the Beta4
-    // persistent-panel rewrite). rAF is deferred in hidden tabs, so the
+    // plays on Browse/Tags entry. rAF is deferred in hidden tabs, so the
     // intro waits until the view is actually rendered.
     introFrame = requestAnimationFrame(() => {
       introFrame = requestAnimationFrame(() => {

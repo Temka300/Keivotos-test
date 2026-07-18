@@ -29,7 +29,7 @@ def _protect(value: str) -> str:
     source, source_buffer = _blob(value.encode("utf-8"))
     output = _DataBlob()
     if not crypt32.CryptProtectData(
-        ctypes.byref(source), "Waifu-Hoard Danbooru API key", None, None, None, 0,
+        ctypes.byref(source), "Danbooru API key", None, None, None, 0,
         ctypes.byref(output),
     ):
         raise ctypes.WinError()

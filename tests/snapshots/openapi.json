@@ -1595,22 +1595,6 @@
         "title": "ImageBatchMove",
         "type": "object"
       },
-      "ImageBatchRequest": {
-        "properties": {
-          "post_ids": {
-            "items": {
-              "type": "integer"
-            },
-            "title": "Post Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "post_ids"
-        ],
-        "title": "ImageBatchRequest",
-        "type": "object"
-      },
       "ImageDetail": {
         "properties": {
           "collections": {
@@ -3535,8 +3519,8 @@
     }
   },
   "info": {
-    "title": "Keivotos - Waifu-Hoard",
-    "version": "1.0.0-pre5"
+    "title": "Keivotos - Danbooru",
+    "version": "1.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -5729,42 +5713,6 @@
         "summary": "List Images"
       }
     },
-    "/api/images/batch": {
-      "delete": {
-        "operationId": "delete_images_batch_api_images_batch_delete",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ImageBatchRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Delete Images Batch"
-      }
-    },
     "/api/images/batch/folder": {
       "put": {
         "operationId": "move_images_batch_api_images_batch_folder_put",
@@ -5938,41 +5886,6 @@
       }
     },
     "/api/images/{post_id}": {
-      "delete": {
-        "operationId": "delete_image_api_images__post_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "post_id",
-            "required": true,
-            "schema": {
-              "title": "Post Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Delete Image"
-      },
       "get": {
         "operationId": "get_image_api_images__post_id__get",
         "parameters": [

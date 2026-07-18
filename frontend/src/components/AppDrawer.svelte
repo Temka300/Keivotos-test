@@ -24,7 +24,7 @@
     showSettings = true;
   }
 
-  function openWaifuHoard() {
+  function openDanbooru() {
     activeCollectionId.set(null);
     selectedImageId.set(null);
     viewMode.set('home');
@@ -82,7 +82,7 @@
       <button
         class="group flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold text-gray-300 transition-colors hover:bg-purple-500/10 hover:text-purple-100"
         type="button"
-        on:click={openWaifuHoard}
+        on:click={openDanbooru}
       >
         <img src="/logo.svg" alt="" class="h-9 w-9 rounded-lg transition-transform group-hover:scale-105" />
         <span class="min-w-0 flex-1 truncate">{MODULE_DISPLAY_NAME}</span>

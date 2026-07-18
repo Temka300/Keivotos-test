@@ -96,7 +96,7 @@ def main() -> None:
     if not RASTER_MASTER.is_file():
         raise SystemExit(f"Missing transparent raster master: {RASTER_MASTER}")
     if not MODULE_MASTER.is_file():
-        raise SystemExit(f"Missing Waifu-Hoard module mark: {MODULE_MASTER}")
+        raise SystemExit(f"Missing Danbooru module mark: {MODULE_MASTER}")
     for directory in (BRAND_DIR, PUBLIC_DIR, PACKAGING_ASSETS):
         directory.mkdir(parents=True, exist_ok=True)
 

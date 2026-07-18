@@ -31,7 +31,7 @@ Keivotos separates replaceable application files from writable library state.
 
 On the first normal launch after this layout change, an existing `Documents\Keivotos` tree is copied into a resumable staging directory, every file is verified, and the completed copy is installed under Local AppData. The Documents original is never deleted. Paths inside the copied `config.json` are rebased only when they previously pointed below that legacy suite home.
 
-The module directory is itself the default metadata root; there is no extra `metadata/` wrapper. If an earlier V1.0.0 test build created that wrapper, startup moves its contents up one level. It never overwrites a different file: a conflict stops startup and leaves both copies for manual review.
+The module directory is itself the default metadata root; there is no extra `metadata/` wrapper. If a legacy test build created that wrapper, startup moves its contents up one level. It never overwrites a different file: a conflict stops startup and leaves both copies for manual review.
 
 External library folders remain in place. Registration stores their path and indexes their content; it does not move the originals. Two roots may have the same final folder name because Keivotos identifies each one with a stable root ID. If a root is moved to another drive, use Settings → Library → Relocate; this updates index/user references while keeping the same sidecar namespace. Keivotos does not move the image files for you.
 

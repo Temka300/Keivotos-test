@@ -322,26 +322,6 @@ def move_images_batch(data: ImageBatchMove):
     return {"status": "completed", "moved_post_ids": moved_post_ids, "errors": errors}
 
 
-@router.delete("/api/images/batch")
-def delete_images_batch(data: ImageBatchRequest):
-    deleted_post_ids: list[int] = []
-    results: dict[str, dict] = {}
-    errors: dict[str, str | dict] = {}
-    for post_id in dict.fromkeys(data.post_ids):
-        try:
-            result = delete_image(post_id)
-            deleted_post_ids.append(post_id)
-            results[str(post_id)] = result
-        except Exception as exc:  # noqa: BLE001 - return per-image failures to the bulk UI.
-            errors[str(post_id)] = batch_error_detail(exc)
-    return {
-        "status": "completed",
-        "deleted_post_ids": deleted_post_ids,
-        "results": results,
-        "errors": errors,
-    }
-
-
 @router.get("/api/images/{post_id}", response_model=ImageDetail)
 def get_image(post_id: int, record_view: bool = True):
     with get_data_db() as conn:
@@ -622,84 +602,6 @@ def move_image_folder(post_id: int, data: ImageMoveFolder):
         uconn.commit()
 
     return get_image(post_id, record_view=False)
-
-
-@router.delete("/api/images/{post_id}")
-def delete_image(post_id: int):
-    with get_data_db() as conn:
-        row = conn.execute(
-            """SELECT p.id, f.id as file_id, f.path, f.name, f.local_md5
-               FROM posts p JOIN files f ON f.id=p.file_id
-               WHERE p.id=?""",
-            (post_id,),
-        ).fetchone()
-        if not row:
-            raise HTTPException(404, "Image not found")
-
-    source_path = Path(row["path"])
-    source_path_text = str(source_path)
-    ensure_managed_path(source_path, "delete")
-
-    deleted_files: list[str] = []
-    missing_files: list[str] = []
-    errors: list[str] = []
-
-    source_delete_error: str | None = None
-    removed_thumbnails = remove_thumbnail_cache(source_path_text, row["local_md5"])
-    paths_to_delete = [
-        source_path,
-        *sidecar_delete_paths(source_path),
-    ]
-    for path in paths_to_delete:
-        try:
-            if delete_file_if_exists(path):
-                deleted_files.append(str(path))
-            else:
-                missing_files.append(str(path))
-        except OSError as exc:
-            message = f"{path}: {exc}"
-            errors.append(message)
-            if path == source_path:
-                source_delete_error = message
-
-    if source_delete_error:
-        raise HTTPException(500, {"message": "Failed to delete source image", "errors": [source_delete_error]})
-
-    with get_data_db() as conn:
-        conn.execute("DELETE FROM post_tags WHERE post_id=?", (row["id"],))
-        conn.execute("DELETE FROM posts WHERE id=?", (row["id"],))
-        conn.execute("DELETE FROM files WHERE id=?", (row["file_id"],))
-        conn.execute("DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM post_tags)")
-        conn.commit()
-
-    with get_user_db() as conn:
-        conn.execute(
-            f"DELETE FROM favorites WHERE {user_file_lookup_sql()}",
-            user_file_lookup_params(row),
-        )
-        conn.execute(
-            f"DELETE FROM collection_items WHERE {user_file_lookup_sql()}",
-            user_file_lookup_params(row),
-        )
-        conn.execute(
-            f"DELETE FROM user_image_tags WHERE {user_file_lookup_sql()}",
-            user_file_lookup_params(row),
-        )
-        conn.execute(
-            f"DELETE FROM image_views WHERE {user_file_lookup_sql()}",
-            user_file_lookup_params(row),
-        )
-        conn.commit()
-
-    return {
-        "status": "deleted_with_errors" if errors else "deleted",
-        "post_id": post_id,
-        "file_id": row["file_id"],
-        "deleted_files": deleted_files,
-        "missing_files": missing_files,
-        "errors": errors,
-        "removed_thumbnails": removed_thumbnails,
-    }
 
 
 @router.get("/api/image-file/{file_id}")

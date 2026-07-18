@@ -1554,7 +1554,7 @@ def import_minimal_media(
     connection.execute("DELETE FROM post_tags WHERE post_id = ?", (int(post_row[0]),))
 
 
-def _beta_scan_roots(args: argparse.Namespace) -> list[Path]:
+def _import_scan_roots(args: argparse.Namespace) -> list[Path]:
     roots: list[Path] = []
     seen: set[str] = set()
     for raw in (args.paths or default_backfill_paths(args.root)):
@@ -1578,9 +1578,9 @@ def _path_in_roots(path_text: str, roots: list[Path]) -> bool:
     return False
 
 
-def run_beta_discover(args: argparse.Namespace) -> int:
+def run_import_discover(args: argparse.Namespace) -> int:
     """Phase 1: make files browseable using directory metadata only."""
-    roots = _beta_scan_roots(args)
+    roots = _import_scan_roots(args)
     if not roots:
         print("No folders to discover.")
         return 0
@@ -1673,9 +1673,9 @@ def _enrich_file(path_text: str) -> tuple[str, str, int | None, int | None, str 
         return path_text, "", None, None, str(exc)
 
 
-def run_beta_enrich(args: argparse.Namespace) -> int:
+def run_import_enrich(args: argparse.Namespace) -> int:
     """Phase 2: hash and inspect discovered files once with bounded workers."""
-    roots = _beta_scan_roots(args)
+    roots = _import_scan_roots(args)
     if not roots:
         print("No folders to enrich.")
         return 0
@@ -1737,12 +1737,12 @@ def run_beta_enrich(args: argparse.Namespace) -> int:
     return 0
 
 
-def run_beta_finalize(args: argparse.Namespace) -> int:
+def run_import_finalize(args: argparse.Namespace) -> int:
     """Phase 4: reuse incremental sync, then mark the resumable phase ledger."""
     result = run_sync(args)
     if result:
         return result
-    roots = _beta_scan_roots(args)
+    roots = _import_scan_roots(args)
     database_path = resolve_database_path(args.root, args.output)
     sidecar_dir = resolve_sidecar_dir(args)
     now = datetime.now(timezone.utc).isoformat()
@@ -2351,22 +2351,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     backfill.set_defaults(func=run_backfill)
 
-    beta_discover = subparsers.add_parser(
-        "beta-discover",
-        help="Beta phase 1: discover paths using directory metadata only.",
+    import_discover = subparsers.add_parser(
+        "import-discover",
+        help="Import phase 1: discover paths using directory metadata only.",
     )
-    beta_discover.add_argument("paths", nargs="*", type=path_arg)
-    beta_discover.add_argument("--output", type=path_arg, default=Path("data") / "danbooru.sqlite")
-    beta_discover.set_defaults(func=run_beta_discover)
+    import_discover.add_argument("paths", nargs="*", type=path_arg)
+    import_discover.add_argument("--output", type=path_arg, default=Path("data") / "danbooru.sqlite")
+    import_discover.set_defaults(func=run_import_discover)
 
-    beta_enrich = subparsers.add_parser(
-        "beta-enrich",
-        help="Beta phase 2: hash files and read dimensions with bounded workers.",
+    import_enrich = subparsers.add_parser(
+        "import-enrich",
+        help="Import phase 2: hash files and read dimensions with bounded workers.",
     )
-    beta_enrich.add_argument("paths", nargs="*", type=path_arg)
-    beta_enrich.add_argument("--output", type=path_arg, default=Path("data") / "danbooru.sqlite")
-    beta_enrich.add_argument("--workers", type=int, default=3)
-    beta_enrich.set_defaults(func=run_beta_enrich)
+    import_enrich.add_argument("paths", nargs="*", type=path_arg)
+    import_enrich.add_argument("--output", type=path_arg, default=Path("data") / "danbooru.sqlite")
+    import_enrich.add_argument("--workers", type=int, default=3)
+    import_enrich.set_defaults(func=run_import_enrich)
 
     index = subparsers.add_parser(
         "index",
@@ -2445,15 +2445,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sync.set_defaults(func=run_sync)
 
-    beta_finalize = subparsers.add_parser(
-        "beta-finalize",
-        help="Beta phase 4: incrementally sync sidecars and finalize the import ledger.",
+    import_finalize = subparsers.add_parser(
+        "import-finalize",
+        help="Import phase 4: incrementally sync sidecars and finalize the import ledger.",
     )
-    beta_finalize.add_argument("paths", nargs="*", type=path_arg)
-    beta_finalize.add_argument("--output", type=path_arg, default=Path("data") / "danbooru.sqlite")
-    beta_finalize.add_argument("--json-suffix", default=".danbooru.json")
-    beta_finalize.add_argument("--no-raw-json", action="store_true")
-    beta_finalize.set_defaults(func=run_beta_finalize)
+    import_finalize.add_argument("paths", nargs="*", type=path_arg)
+    import_finalize.add_argument("--output", type=path_arg, default=Path("data") / "danbooru.sqlite")
+    import_finalize.add_argument("--json-suffix", default=".danbooru.json")
+    import_finalize.add_argument("--no-raw-json", action="store_true")
+    import_finalize.set_defaults(func=run_import_finalize)
 
     clean_sidecars = subparsers.add_parser(
         "clean-sidecars",

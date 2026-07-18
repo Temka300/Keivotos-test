@@ -1,6 +1,6 @@
 """Set the product version in every tracked location with one command.
 
-Usage:  .venv\Scripts\python.exe scripts\release\set_version.py 1.0.0-rc5
+Usage:  .venv\Scripts\python.exe scripts\release\set_version.py 1.0.0
 """
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def main() -> int:
         f'VERSION = "{version}"',
     )
 
-    # Package metadata (must stay PEP 440-valid, e.g. -rc5 not -pr5).
+    # Package metadata must stay PEP 440-valid.
     rewrite(
         ROOT / "pyproject.toml",
         r'^version = ".*"$',

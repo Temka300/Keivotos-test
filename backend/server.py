@@ -1,4 +1,4 @@
-"""FastAPI composition root for Waifu-Hoard."""
+"""FastAPI composition root for Danbooru."""
 
 from config import CODE_ROOT
 from fastapi.responses import FileResponse

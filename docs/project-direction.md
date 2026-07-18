@@ -1,6 +1,6 @@
 # Keivotos project direction
 
-Keivotos is the shared local-first suite; Waifu-Hoard is its first module.
+Keivotos is the shared local-first suite; Danbooru is its first module.
 V1.0.0 establishes the identity, external writable-data layout, source launch,
 portable-build path, local verification, and FOSS distribution foundation
 needed before more hoarders are combined.

@@ -1,6 +1,6 @@
 # Keivotos frontend
 
-The Waifu-Hoard interface is a Svelte 5, TypeScript, Vite, and Tailwind frontend.
+The Danbooru interface is a Svelte 5, TypeScript, Vite, and Tailwind frontend.
 The FastAPI application serves the production output from `frontend/dist`.
 
 ```powershell

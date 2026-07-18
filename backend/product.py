@@ -1,8 +1,8 @@
 """Single source of truth for product identity exposed by the application."""
 
 SUITE_NAME = "Keivotos"
-MODULE_NAME = "Waifu-Hoard"
-VERSION = "1.0.0-pre5"
+MODULE_NAME = "Danbooru"
+VERSION = "1.0.0"
 DISPLAY_NAME = f"{SUITE_NAME} - {MODULE_NAME}"
 WEB_TITLE = DISPLAY_NAME
 USER_AGENT = f"{SUITE_NAME}/{VERSION} ({MODULE_NAME})"

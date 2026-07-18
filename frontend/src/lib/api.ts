@@ -476,16 +476,6 @@ async function del<T>(path: string, params?: Record<string, string | number | bo
   return res.json();
 }
 
-async function delBody<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(BASE + path, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw await apiError(res);
-  return res.json();
-}
-
 export function thumbnailUrl(fileId: number, size?: number, token?: string): string {
   const params = new URLSearchParams();
   params.set('tv', THUMBNAIL_VERSION);
@@ -541,15 +531,6 @@ export const api = {
 
   openImageLocation: (postId: number) =>
     post<{ status: string; path: string }>(`/images/${postId}/open-location`),
-
-  deleteImage: (postId: number) =>
-    del<{ status: string; post_id: number; file_id: number; deleted_files: string[]; missing_files: string[]; removed_thumbnails: number; errors?: string[] }>(`/images/${postId}`),
-
-  deleteImages: (postIds: number[]) =>
-    delBody<{ status: string; deleted_post_ids: number[]; results: Record<string, unknown>; errors: Record<string, unknown> }>(
-      '/images/batch',
-      { post_ids: postIds },
-    ),
 
   getHomeTags: (params?: { rating?: string; featured_limit?: number; group_limit?: number }) =>
     get<HomeTags>('/home/tags', params as Record<string, string | number>),

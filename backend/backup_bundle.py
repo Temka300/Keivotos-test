@@ -309,7 +309,7 @@ def inspect_backup_bundle(path: Path) -> dict[str, Any]:
             raise RuntimeError(f"Backup is corrupt at {failed}")
         manifest = json.loads(archive.read("manifest.json"))
         if manifest.get("format") != "waifu-hoard-metadata-backup":
-            raise ValueError("Not a Waifu-Hoard metadata backup")
+            raise ValueError("Not a Danbooru metadata backup")
         if int(manifest.get("format_version", 0)) > BACKUP_FORMAT_VERSION:
             raise ValueError("Backup was created by a newer unsupported format")
         return manifest
@@ -427,7 +427,7 @@ def restore_backup_bundle(name: str) -> dict[str, Any]:
             "components": components,
             "rollback_path": str(rollback_dir),
             "restart_required": True,
-            "message": "Metadata restored and verified. External images were not changed. Restart Waifu-Hoard before continuing.",
+            "message": "Metadata restored and verified. External images were not changed. Restart Danbooru before continuing.",
         }
     finally:
         _bundle_lock.release()

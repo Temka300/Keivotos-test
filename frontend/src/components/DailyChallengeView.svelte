@@ -277,7 +277,7 @@
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3l2.2 4.8 5.2.6-3.8 3.5 1 5.1L12 14.4 7.4 17l1-5.1-3.8-3.5 5.2-.6L12 3z" /></svg>
         </div>
         <div>
-          <div class="text-[10px] font-semibold uppercase tracking-[0.24em] text-pink-300/75">Daily Waifu Challenge</div>
+          <div class="text-[10px] font-semibold uppercase tracking-[0.24em] text-pink-300/75">Daily Danbooru Challenge</div>
           <h2 class="text-2xl font-semibold leading-tight text-gray-100">Guess the Character</h2>
         </div>
       </div>

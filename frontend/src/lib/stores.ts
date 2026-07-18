@@ -270,7 +270,6 @@ export const collectionRefreshToken = writable(0);
 export const tagRefreshToken = writable(0);
 export const artistFollowRefreshToken = writable(0);
 export const artistFocusRequest = writable<string | null>(null);
-export const deletedImageId = writable<number | null>(null);
 export const activeCollectionId = writable<number | null>(null);
 export const sidebarOpen = persistedWritable<boolean>(persistentStorageKey('sidebar-open'), true, normalizeBoolean);
 export const sidebarHandlePosition = persistedWritable<number>(persistentStorageKey('sidebar-handle-position'), 50, normalizeSidebarHandlePosition);

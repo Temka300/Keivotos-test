@@ -1,5 +1,5 @@
 export const SUITE_NAME = 'Keivotos';
-export const MODULE_NAME = 'Waifu-Hoard';
+export const MODULE_NAME = 'Danbooru';
 export const MODULE_DISPLAY_NAME = MODULE_NAME.replace('-', ' ');
 export const DISPLAY_NAME = `${SUITE_NAME} - ${MODULE_NAME}`;
 export const DEFAULT_PROFILE_NAME = SUITE_NAME;

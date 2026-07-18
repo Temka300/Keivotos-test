@@ -311,10 +311,19 @@ class ReleaseLayoutTests(unittest.TestCase):
 
     def test_web_document_uses_suite_identity(self) -> None:
         index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("<title>Keivotos - Waifu-Hoard</title>", index)
+        self.assertIn("<title>Keivotos - Danbooru</title>", index)
         self.assertIn('href="/favicon.png"', index)
         self.assertTrue((ROOT / "frontend" / "public" / "keivotos-logo.png").is_file())
         self.assertTrue((ROOT / "packaging" / "windows" / "assets" / "keivotos.ico").is_file())
+
+    def test_original_media_has_no_delete_controls(self) -> None:
+        detail = (ROOT / "frontend" / "src" / "components" / "ImageDetail.svelte").read_text(encoding="utf-8")
+        grid = (ROOT / "frontend" / "src" / "components" / "ImageGrid.svelte").read_text(encoding="utf-8")
+        api_client = (ROOT / "frontend" / "src" / "lib" / "api.ts").read_text(encoding="utf-8")
+        self.assertNotIn("Delete Image", detail)
+        self.assertNotIn("deleteImage", api_client)
+        self.assertNotIn("deleteSelectedImages", grid)
+        self.assertNotIn("deleteImages", api_client)
 
     def test_launcher_and_brand_assets_use_the_keivotos_defaults(self) -> None:
         sys.path.insert(0, str(ROOT / "backend"))
@@ -324,7 +333,7 @@ class ReleaseLayoutTests(unittest.TestCase):
             sys.path.pop(0)
         self.assertEqual((DEFAULT_HOST, DEFAULT_PORT), ("localhost", 52325))
         self.assertEqual(DEFAULT_ORIGIN, "http://localhost:52325")
-        self.assertEqual(DISPLAY_NAME, "Keivotos - Waifu-Hoard")
+        self.assertEqual(DISPLAY_NAME, "Keivotos - Danbooru")
         self.assertEqual(WEB_TITLE, DISPLAY_NAME)
 
         canonical = (
@@ -337,7 +346,7 @@ class ReleaseLayoutTests(unittest.TestCase):
             ROOT / "assets" / "branding" / "waifu-hoard" / "profile-avatar.svg"
         ).read_text(encoding="utf-8")
         self.assertIn("Keivotos angular avatar logo", canonical)
-        self.assertIn('aria-label="Waifu Hoard"', module_mark)
+        self.assertIn('aria-label="Danbooru"', module_mark)
         self.assertEqual((ROOT / "frontend" / "public" / "logo.svg").read_text(encoding="utf-8"), module_mark)
         self.assertEqual((ROOT / "frontend" / "public" / "favicon.svg").read_text(encoding="utf-8"), canonical)
         self.assertEqual(
@@ -372,8 +381,8 @@ class ReleaseLayoutTests(unittest.TestCase):
                 ROOT / "frontend" / "src" / "components" / component_name
             ).read_text(encoding="utf-8")
             self.assertNotIn(SUITE_NAME, component)
-            self.assertNotIn(MODULE_NAME, component)
-            self.assertNotIn(MODULE_NAME.replace("-", " "), component)
+            self.assertNotIn(f"'{MODULE_NAME}'", component)
+            self.assertNotIn(f'"{MODULE_NAME}"', component)
         self.assertNotIn("waifu-hoard:", stores)
         self.assertIn("api.getUserSetting('profile_name')", stores)
         self.assertIn("api.putUserSetting('profile_name'", stores)

@@ -1,4 +1,4 @@
-"""Launch Keivotos and its Waifu-Hoard module.
+"""Launch Keivotos and its Danbooru module.
 
 Source examples:
     python app.py

@@ -1,4 +1,4 @@
-"""Read-only benchmark for the Waifu-Hoard library queries that scale with size."""
+"""Read-only benchmark for the Danbooru library queries that scale with size."""
 from __future__ import annotations
 
 import argparse

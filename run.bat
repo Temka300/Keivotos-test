@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title Keivotos - Waifu-Hoard
+title Keivotos - Danbooru
 
 where uv >nul 2>nul
 if errorlevel 1 (
@@ -46,7 +46,7 @@ if not exist "frontend\dist\index.html" (
     popd
 )
 
-echo [RUN] Starting Keivotos - Waifu-Hoard...
+echo [RUN] Starting Keivotos - Danbooru...
 ".venv\Scripts\python.exe" app.py %*
 
 if errorlevel 1 (

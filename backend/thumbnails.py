@@ -95,20 +95,6 @@ def remove_legacy_thumbnail_cache(source_path: str, content_md5: str | None = No
     return removed
 
 
-def remove_thumbnail_cache(source_path: str, content_md5: str | None = None) -> int:
-    if not THUMB_DIR.exists():
-        return 0
-    key = _thumbnail_content_key(source_path, content_md5)
-    removed = 0
-    for thumb_path in THUMB_DIR.glob(f"{key}*.webp"):
-        try:
-            thumb_path.unlink()
-            removed += 1
-        except OSError:
-            pass
-    return removed
-
-
 def _video_frame(source_path: Path) -> Image.Image:
     executable: str | None = None
     if getattr(sys, "frozen", False):

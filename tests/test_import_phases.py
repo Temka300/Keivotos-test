@@ -20,9 +20,9 @@ import danbooru_gallery_dl as gallery  # noqa: E402
 from storage_layout import LibraryRoot  # noqa: E402
 
 
-class BetaImportTests(unittest.TestCase):
+class ImportPhaseTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = ROOT / "tests" / ".tmp-beta-import"
+        self.temp = ROOT / "tests" / ".tmp-import-phases"
         shutil.rmtree(self.temp, ignore_errors=True)
         self.library = self.temp / "external-library"
         self.library.mkdir(parents=True)
@@ -32,7 +32,7 @@ class BetaImportTests(unittest.TestCase):
         self.sidecars = self.temp / "sidecars"
         self.user_db = self.temp / "user.sqlite"
         self.original_roots = gallery._LIBRARY_ROOTS
-        gallery._LIBRARY_ROOTS = [LibraryRoot("root-beta-test", "external-library", self.library)]
+        gallery._LIBRARY_ROOTS = [LibraryRoot("root-import-test", "external-library", self.library)]
 
     def tearDown(self) -> None:
         gallery._LIBRARY_ROOTS = self.original_roots
@@ -46,7 +46,7 @@ class BetaImportTests(unittest.TestCase):
             command,
             "--output", str(self.database),
         ]
-        if command == "beta-enrich":
+        if command == "import-enrich":
             values.extend(["--workers", "2"])
         values.append(str(self.library))
         parsed = gallery.build_parser().parse_args(values)
@@ -69,20 +69,20 @@ class BetaImportTests(unittest.TestCase):
         return parsed
 
     def prepare_enriched_file(self) -> None:
-        self.assertEqual(gallery.run_beta_discover(self.args("beta-discover")), 0)
-        self.assertEqual(gallery.run_beta_enrich(self.args("beta-enrich")), 0)
+        self.assertEqual(gallery.run_import_discover(self.args("import-discover")), 0)
+        self.assertEqual(gallery.run_import_enrich(self.args("import-enrich")), 0)
 
     def test_discover_enrich_and_finalize_are_resumable_phases(self) -> None:
-        self.assertEqual(gallery.run_beta_discover(self.args("beta-discover")), 0)
+        self.assertEqual(gallery.run_import_discover(self.args("import-discover")), 0)
         connection = sqlite3.connect(self.database)
         discovered = connection.execute(
             "SELECT root_id, relative_path, local_md5 FROM files"
         ).fetchone()
         connection.close()
-        self.assertEqual(discovered[:2], ("root-beta-test", "sample.png"))
+        self.assertEqual(discovered[:2], ("root-import-test", "sample.png"))
         self.assertIsNone(discovered[2], "phase 1 must not open or hash file contents")
 
-        self.assertEqual(gallery.run_beta_enrich(self.args("beta-enrich")), 0)
+        self.assertEqual(gallery.run_import_enrich(self.args("import-enrich")), 0)
         connection = sqlite3.connect(self.database)
         enriched = connection.execute(
             """SELECT f.local_md5, p.width, p.height, s.enriched_at
@@ -94,7 +94,7 @@ class BetaImportTests(unittest.TestCase):
         self.assertEqual(enriched[1:3], (640, 480))
         self.assertIsNotNone(enriched[3])
 
-        self.assertEqual(gallery.run_beta_finalize(self.args("beta-finalize")), 0)
+        self.assertEqual(gallery.run_import_finalize(self.args("import-finalize")), 0)
         connection = sqlite3.connect(self.database)
         finalized = connection.execute(
             "SELECT phase, status, finalized_at FROM ingest_state"
@@ -148,7 +148,7 @@ class BetaImportTests(unittest.TestCase):
         self.assertIn("No Danbooru MD5 match", state[2])
         self.assertIsNone(state[3])
 
-        self.assertEqual(gallery.run_beta_finalize(self.args("beta-finalize")), 0)
+        self.assertEqual(gallery.run_import_finalize(self.args("import-finalize")), 0)
         connection = sqlite3.connect(self.database)
         finalized = connection.execute(
             "SELECT status, error, finalized_at FROM ingest_state"

@@ -2,7 +2,7 @@
   import { createEventDispatcher, onMount, tick } from 'svelte';
   import { fly } from 'svelte/transition';
   import { api, imageFileUrl, thumbnailUrl, type ArtistProfileAsset, type ImageDetail as ImageDetailType, type CollectionInfo, type FolderInfo, type RelatedImageInfo, type TagInfo } from '../lib/api';
-  import { activeCollectionId, activeFolder, activeTags, browseTagSelection, collectionRefreshToken, deletedImageId, heartSpamEnabled, imageRefreshToken, mediaPlayback, selectedImageId, tagRefreshToken, viewMode, visibleImageIds } from '../lib/stores';
+  import { activeCollectionId, activeFolder, activeTags, browseTagSelection, collectionRefreshToken, heartSpamEnabled, imageRefreshToken, mediaPlayback, selectedImageId, tagRefreshToken, viewMode, visibleImageIds } from '../lib/stores';
 
   export let postId: number | null = null;
   export let profileAsset: ArtistProfileAsset | null = null;
@@ -34,8 +34,6 @@
   let panStartY = 0;
   let panOriginX = 0;
   let panOriginY = 0;
-  let deleting = false;
-  let deleteError = '';
   let userTagSaving = false;
   let userTagError = '';
   let movingFolder = false;
@@ -172,7 +170,6 @@
     resetImageView();
     mediaHovered = false;
     floatingHearts = [];
-    deleteError = '';
     userTagError = '';
     activeUserTagCategory = null;
     userTagDraft = '';
@@ -778,25 +775,6 @@
     }
   }
 
-  async function deleteImage() {
-    if (!detail || deleting) return;
-    const confirmed = window.confirm(`Delete ${detail.filename} from disk and remove its sidecars? This cannot be undone.`);
-    if (!confirmed) return;
-
-    deleting = true;
-    deleteError = '';
-    try {
-      await api.deleteImage(detail.id);
-      deletedImageId.set(detail.id);
-      imageRefreshToken.update(n => n + 1);
-      dispatch('close');
-    } catch (e) {
-      console.error(e);
-      deleteError = 'Failed to delete image';
-    } finally {
-      deleting = false;
-    }
-  }
 </script>
 
 <svelte:window on:keydown={onKeydown} on:pointerup={stopZoomSliderDrag} on:pointercancel={stopZoomSliderDrag} />
@@ -1507,21 +1485,6 @@
             </div>
           {/if}
 
-          <div class="mt-4 border-t border-[#2a2a3a] pt-4">
-            {#if deleteError}
-              <div class="mb-2 text-xs text-red-300">{deleteError}</div>
-            {/if}
-            <button
-              class="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/35 bg-red-600/20 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={deleting}
-              on:click={deleteImage}
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0V5a2 2 0 012-2h2a2 2 0 012 2v2"/>
-              </svg>
-              {deleting ? 'Deleting...' : 'Delete Image'}
-            </button>
-          </div>
         </div>
       </div>
     </div>

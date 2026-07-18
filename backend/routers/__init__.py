@@ -1,1 +1,1 @@
-"""Domain routers for the Waifu-Hoard API."""
+"""Domain routers for the Danbooru API."""

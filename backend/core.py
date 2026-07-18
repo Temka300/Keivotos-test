@@ -72,7 +72,6 @@ from models import (
     HomeTags,
     ImageDetail,
     ImageBatchMove,
-    ImageBatchRequest,
     ImageMoveFolder,
     ImageSummary,
     PaginatedImages,
@@ -94,7 +93,7 @@ from models import (
     TimelapseFrames,
     UserImageTagCreate,
 )
-from thumbnails import DEFAULT_THUMB_SIZE, ensure_thumbnail, remove_thumbnail_cache, thumbnail_cache_token
+from thumbnails import DEFAULT_THUMB_SIZE, ensure_thumbnail, thumbnail_cache_token
 from config import (
     ARTIST_PROFILE_ARCHIVE_DIR,
     DATA_DB_PATH,
@@ -129,7 +128,6 @@ logger = logging.getLogger(__name__)
 
 
 COPY_SUFFIX_RE = re.compile(r"\s+\(\d+\)(?=\.[^.]+$)")
-SIDECAR_SUFFIXES = (".danbooru.json", ".tags.txt")
 STREAM_CHUNK_SIZE = 1024 * 1024
 DANBOORU_POST_URL_PREFIX = "https://danbooru.donmai.us/posts/"
 TAG_WIKI_CACHE_MAX_AGE = timedelta(days=30)
@@ -172,13 +170,6 @@ def duplicate_filter_sql(scope: str) -> str:
         GROUP BY {inner_expr}
         HAVING COUNT(*) > 1
     )"""
-
-
-def delete_file_if_exists(path: Path) -> bool:
-    if not path.exists():
-        return False
-    path.unlink()
-    return True
 
 
 def media_placeholder(ext: str | None) -> Response:
@@ -379,14 +370,6 @@ def central_sidecar_path(media_path: Path, suffix: str) -> Path:
 
 def sidecar_candidates(media_path: Path, suffix: str) -> list[Path]:
     return layout_sidecar_candidates(media_path, suffix, DATA_ROOT, SIDECAR_DIR, library_roots())
-
-
-def sidecar_delete_paths(media_path: Path) -> list[Path]:
-    return [
-        candidate
-        for suffix in SIDECAR_SUFFIXES
-        for candidate in sidecar_candidates(media_path, suffix)
-    ]
 
 
 def user_image_tags_for_file(conn, file_row: dict[str, Any]) -> dict[str, list[str]]:
@@ -1002,9 +985,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_user_db()
     maintenance_task = asyncio.create_task(
         asyncio.to_thread(run_startup_maintenance),
-        name="waifu-hoard-startup-maintenance",
+        name="danbooru-startup-maintenance",
     )
-    automation_task = asyncio.create_task(automation_loop(), name="waifu-hoard-auto-ingest")
+    automation_task = asyncio.create_task(automation_loop(), name="danbooru-auto-ingest")
     try:
         yield
     finally:
@@ -2933,7 +2916,7 @@ def _sync_command(paths: list[str]) -> list[str]:
 def _import_discover_command(paths: list[str]) -> list[str]:
     return [
         *_tool_base_command(),
-        "beta-discover", "--output", str(DATA_DB_PATH),
+        "import-discover", "--output", str(DATA_DB_PATH),
         *paths,
     ]
 
@@ -2941,7 +2924,7 @@ def _import_discover_command(paths: list[str]) -> list[str]:
 def _import_enrich_command(paths: list[str]) -> list[str]:
     return [
         *_tool_base_command(),
-        "beta-enrich", "--output", str(DATA_DB_PATH), "--workers", "3",
+        "import-enrich", "--output", str(DATA_DB_PATH), "--workers", "3",
         *paths,
     ]
 
@@ -2949,7 +2932,7 @@ def _import_enrich_command(paths: list[str]) -> list[str]:
 def _import_finalize_command(paths: list[str]) -> list[str]:
     return [
         *_tool_base_command(),
-        "beta-finalize", "--output", str(DATA_DB_PATH), "--no-raw-json",
+        "import-finalize", "--output", str(DATA_DB_PATH), "--no-raw-json",
         *paths,
     ]
 
