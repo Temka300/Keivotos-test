@@ -7,7 +7,7 @@ needed before more hoarders are combined.
 
 ## Next investigation
 
-Waifu-Hoard-Hoarder is the next codebase to evaluate. It already experiments
+The manga-hoarder prototype is the next codebase to evaluate. It already experiments
 with manga acquisition, CBZ storage, queueing, local-library scans, and a reader.
 The first task is an audit—not a bulk move—covering:
 

@@ -103,19 +103,21 @@ SUITE_HOME = (
     if _suite_home_override
     else DEFAULT_SUITE_HOME
 )
-MODULE_HOME = SUITE_HOME / "modules" / "waifu-hoard"
+MODULE_SLUG = "danbooru"
+MODULES_DIR = SUITE_HOME / "modules"
+MODULE_HOME = MODULES_DIR / MODULE_SLUG
 DEFAULT_LIBRARY_DIR = MODULE_HOME / "library"
 DEFAULT_METADATA_DIR = MODULE_HOME
 LEGACY_DEFAULT_METADATA_DIR = MODULE_HOME / "metadata"
 DEFAULT_GALLERY_DL_DIR = MODULE_HOME / "gallery-dl"
-DEFAULT_BACKUP_DIR = SUITE_HOME / "backups" / "waifu-hoard"
+DEFAULT_BACKUP_DIR = SUITE_HOME / "backups" / MODULE_SLUG
 LOG_DIR = SUITE_HOME / "logs"
 LOG_FILE_LIMIT_MB = 5
 LOG_ROLLOVER_FILES = 5
 LOG_RETENTION_FILES = 30
 LOG_SESSION_ID = f"{datetime.now().astimezone():%Y-%m-%d_%H-%M-%S}-p{os.getpid()}"
-RUNTIME_LOG_FILE = LOG_DIR / f"waifu-hoard-runtime-{LOG_SESSION_ID}.log"
-ACCESS_LOG_FILE = LOG_DIR / f"waifu-hoard-access-{LOG_SESSION_ID}.log"
+RUNTIME_LOG_FILE = LOG_DIR / f"{MODULE_SLUG}-runtime-{LOG_SESSION_ID}.log"
+ACCESS_LOG_FILE = LOG_DIR / f"{MODULE_SLUG}-access-{LOG_SESSION_ID}.log"
 RUNTIME_CONFIG_FILE = SUITE_HOME / "config.json"
 
 # Compatibility name used by existing APIs; it means the module's writable
@@ -231,7 +233,7 @@ def _copy_verified_tree(source: Path, destination: Path) -> tuple[int, int]:
 
 
 def _rebase_migrated_config(config_path: Path, source_home: Path, destination_home: Path) -> bool:
-    """Retarget only copied paths that previously lived below Documents/Keivotos."""
+    """Retarget only copied paths that previously lived below a migrated root."""
     if not config_path.is_file():
         return False
     config = _read_json(config_path)
@@ -259,8 +261,7 @@ def _rebase_migrated_config(config_path: Path, source_home: Path, destination_ho
     return True
 
 
-def _verify_migrated_databases(staging_home: Path) -> None:
-    module_home = staging_home / "modules" / "waifu-hoard"
+def _verify_module_databases(module_home: Path) -> None:
     for database_name in ("user.sqlite", "danbooru.sqlite"):
         path = module_home / database_name
         if not path.is_file():
@@ -272,6 +273,17 @@ def _verify_migrated_databases(staging_home: Path) -> None:
             connection.close()
         if not row or row[0] != "ok":
             raise RuntimeError(f"Application-data migration SQLite check failed for {database_name}: {row!r}")
+
+
+def _verify_migrated_databases(staging_home: Path) -> None:
+    modules = staging_home / "modules"
+    if not modules.is_dir():
+        return
+    for module_home in sorted(modules.iterdir(), key=lambda item: item.name.casefold()):
+        if module_home.is_symlink():
+            raise RuntimeError(f"Refused symbolic-link module migration: {module_home}")
+        if module_home.is_dir():
+            _verify_module_databases(module_home)
 
 
 def migrate_legacy_suite_home(
@@ -319,9 +331,118 @@ def migrate_legacy_suite_home(
     }
 
 
+def _configured_previous_module_homes() -> list[Path]:
+    modules = MODULES_DIR.resolve(strict=False)
+    candidates: dict[str, Path] = {}
+    for key in ("data_root", "metadata_dir", "gallery_dl_dir"):
+        value = _read_json(RUNTIME_CONFIG_FILE).get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        path = Path(value).expanduser()
+        if not path.is_absolute():
+            continue
+        resolved = path.resolve(strict=False)
+        try:
+            relative = resolved.relative_to(modules)
+        except ValueError:
+            continue
+        if not relative.parts:
+            continue
+        candidate = modules / relative.parts[0]
+        if candidate != MODULE_HOME.resolve(strict=False) and candidate.is_dir():
+            candidates[str(candidate).casefold()] = candidate
+    return list(candidates.values())
+
+
+def _discover_previous_module_home() -> tuple[Path | None, str]:
+    configured = _configured_previous_module_homes()
+    if len(configured) > 1:
+        raise RuntimeError("Module migration found conflicting configured module roots")
+    if configured:
+        return configured[0], "configured"
+    if MODULE_HOME.exists() or not MODULES_DIR.is_dir():
+        return None, "destination-exists" if MODULE_HOME.exists() else "source-missing"
+
+    markers = {"user.sqlite", "danbooru.sqlite", "metadata", "sidecars", "library", "gallery-dl"}
+    candidates = [
+        path
+        for path in MODULES_DIR.iterdir()
+        if path.is_dir()
+        and not path.is_symlink()
+        and path.name != MODULE_SLUG
+        and any((path / marker).exists() for marker in markers)
+    ]
+    if len(candidates) > 1:
+        raise RuntimeError("Module migration found multiple prior data roots; configure metadata_dir explicitly")
+    return (candidates[0], "discovered") if candidates else (None, "source-missing")
+
+
+def migrate_previous_module_home(
+    source: Path | None = None,
+    destination: Path | None = None,
+) -> dict[str, Any]:
+    """Copy and verify a prior module layout without removing its source data."""
+    reason = "explicit"
+    if source is None:
+        source, reason = _discover_previous_module_home()
+    if source is None:
+        return {"migrated": False, "reason": reason, "files": 0, "bytes": 0}
+
+    source_home = source.expanduser().resolve(strict=False)
+    destination_home = (destination or MODULE_HOME).expanduser().resolve(strict=False)
+    if not source_home.is_dir():
+        return {"migrated": False, "reason": "source-missing", "files": 0, "bytes": 0}
+    if source_home.is_symlink():
+        raise RuntimeError(f"Refused symbolic-link module migration: {source_home}")
+    if source_home == destination_home or source_home in destination_home.parents or destination_home in source_home.parents:
+        raise RuntimeError("Module migration source and destination must be separate directories")
+    if destination_home.exists() and (destination_home.is_symlink() or not destination_home.is_dir()):
+        raise RuntimeError(f"Module migration destination is unsafe: {destination_home}")
+
+    staging = destination_home.with_name(destination_home.name + ".migration-staging")
+    copy_target = destination_home
+    if not destination_home.exists():
+        if staging.exists() and (staging.is_symlink() or not staging.is_dir()):
+            raise RuntimeError(f"Module migration staging is unsafe: {staging}")
+        destination_home.parent.mkdir(parents=True, exist_ok=True)
+        staging.mkdir(parents=True, exist_ok=True)
+        copy_target = staging
+
+    files = copied_bytes = 0
+    for child in sorted(source_home.iterdir(), key=lambda item: item.name.casefold()):
+        child_files, child_bytes = _copy_verified_tree(child, copy_target / child.name)
+        files += child_files
+        copied_bytes += child_bytes
+    _verify_module_databases(copy_target)
+    if copy_target == staging:
+        staging.replace(destination_home)
+
+    source_backup = SUITE_HOME / "backups" / source_home.name
+    if source_backup.is_dir() and not source_backup.is_symlink():
+        backup_files, backup_bytes = _copy_verified_tree(source_backup, DEFAULT_BACKUP_DIR)
+        files += backup_files
+        copied_bytes += backup_bytes
+    config_rebased = _rebase_migrated_config(RUNTIME_CONFIG_FILE, source_home, destination_home)
+    return {
+        "migrated": True,
+        "reason": reason,
+        "files": files,
+        "bytes": copied_bytes,
+        "config_rebased": config_rebased,
+        "source": str(source_home),
+        "destination": str(destination_home),
+    }
+
+
+_migration_requested = os.environ.pop("KEIVOTOS_MIGRATE_LEGACY_HOME", "") == "1"
 SUITE_HOME_MIGRATION = (
     migrate_legacy_suite_home()
-    if os.environ.pop("KEIVOTOS_MIGRATE_LEGACY_HOME", "") == "1"
+    if _migration_requested
+    else {"migrated": False, "reason": "not-requested", "files": 0, "bytes": 0}
+)
+MODULE_HOME_MIGRATION = (
+    migrate_previous_module_home()
+    if _migration_requested
     else {"migrated": False, "reason": "not-requested", "files": 0, "bytes": 0}
 )
 

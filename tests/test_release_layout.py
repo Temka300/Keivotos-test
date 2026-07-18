@@ -60,7 +60,7 @@ class ReleaseLayoutTests(unittest.TestCase):
         with isolated_home() as temporary:
             legacy = temporary / "Documents" / "Keivotos"
             destination = temporary / "LocalAppData" / "Keivotos"
-            module = legacy / "modules" / "waifu-hoard"
+            module = legacy / "modules" / "danbooru"
             (module / "sidecars").mkdir(parents=True)
             connection = sqlite3.connect(module / "user.sqlite")
             connection.execute("CREATE TABLE marker(value TEXT NOT NULL)")
@@ -95,18 +95,67 @@ class ReleaseLayoutTests(unittest.TestCase):
             migration = json.loads(result.stdout)
             self.assertTrue(migration["migrated"])
             self.assertTrue(migration["config_rebased"])
-            for database in (destination / "modules" / "waifu-hoard" / "user.sqlite", module / "user.sqlite"):
+            for database in (destination / "modules" / "danbooru" / "user.sqlite", module / "user.sqlite"):
                 connection = sqlite3.connect(database)
                 value = connection.execute("SELECT value FROM marker").fetchone()[0]
                 connection.close()
                 self.assertEqual(value, "user-database")
             migrated_config = json.loads((destination / "config.json").read_text(encoding="utf-8"))
-            self.assertEqual(migrated_config["metadata_dir"], str(destination / "modules" / "waifu-hoard"))
+            self.assertEqual(migrated_config["metadata_dir"], str(destination / "modules" / "danbooru"))
             self.assertEqual(migrated_config["thumbnail_cache_limit_gb"], 5)
+
+    def test_previous_module_home_is_copied_verified_and_rebased(self) -> None:
+        with isolated_home() as temporary:
+            previous = temporary / "modules" / "retired-module"
+            destination = temporary / "modules" / "danbooru"
+            (previous / "sidecars").mkdir(parents=True)
+            connection = sqlite3.connect(previous / "user.sqlite")
+            connection.execute("CREATE TABLE marker(value TEXT NOT NULL)")
+            connection.execute("INSERT INTO marker(value) VALUES ('preserved-user-database')")
+            connection.commit()
+            connection.close()
+            (previous / "sidecars" / "sample.json").write_text("sidecar", encoding="utf-8")
+            (temporary / "config.json").write_text(
+                json.dumps({
+                    "metadata_dir": str(previous),
+                    "gallery_dl_dir": str(previous / "gallery-dl"),
+                }),
+                encoding="utf-8",
+            )
+            environment = {
+                **os.environ,
+                "KEIVOTOS_HOME": str(temporary),
+                "KEIVOTOS_MIGRATE_LEGACY_HOME": "1",
+            }
+            code = (
+                "import json, sys; "
+                f"sys.path.insert(0, {str(ROOT / 'backend')!r}); "
+                "import config; "
+                "print(json.dumps(config.MODULE_HOME_MIGRATION))"
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", code],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            migration = json.loads(result.stdout)
+            self.assertTrue(migration["migrated"])
+            self.assertTrue(migration["config_rebased"])
+            for database in (previous / "user.sqlite", destination / "user.sqlite"):
+                connection = sqlite3.connect(database)
+                value = connection.execute("SELECT value FROM marker").fetchone()[0]
+                connection.close()
+                self.assertEqual(value, "preserved-user-database")
+            self.assertEqual((destination / "sidecars" / "sample.json").read_text(encoding="utf-8"), "sidecar")
+            migrated_config = json.loads((temporary / "config.json").read_text(encoding="utf-8"))
+            self.assertEqual(migrated_config["metadata_dir"], str(destination))
 
     def test_legacy_metadata_wrapper_is_flattened_without_overwrite(self) -> None:
         with isolated_home() as temporary:
-            legacy = temporary / "modules" / "waifu-hoard" / "metadata"
+            legacy = temporary / "modules" / "danbooru" / "metadata"
             (legacy / "sidecars" / "roots").mkdir(parents=True)
             (legacy / "sidecars" / "roots" / "sample.json").write_text("sidecar", encoding="utf-8")
             (legacy / "danbooru.sqlite").write_bytes(b"library-db")
@@ -127,7 +176,7 @@ class ReleaseLayoutTests(unittest.TestCase):
                 check=True,
             )
             migration = json.loads(result.stdout)
-            module_home = temporary / "modules" / "waifu-hoard"
+            module_home = temporary / "modules" / "danbooru"
             self.assertTrue(migration["migrated"])
             self.assertFalse(legacy.exists())
             self.assertEqual((module_home / "danbooru.sqlite").read_bytes(), b"library-db")
@@ -136,7 +185,7 @@ class ReleaseLayoutTests(unittest.TestCase):
 
     def test_legacy_metadata_conflict_is_preserved(self) -> None:
         with isolated_home() as temporary:
-            module_home = temporary / "modules" / "waifu-hoard"
+            module_home = temporary / "modules" / "danbooru"
             legacy = module_home / "metadata"
             legacy.mkdir(parents=True)
             (module_home / "user.sqlite").write_bytes(b"new-location")
@@ -247,7 +296,7 @@ class ReleaseLayoutTests(unittest.TestCase):
                 check=True,
             )
             status = json.loads(result.stdout)
-            self.assertEqual(Path(status["destination"]), temporary / "backups" / "waifu-hoard")
+            self.assertEqual(Path(status["destination"]), temporary / "backups" / "danbooru")
             self.assertFalse(status["snapshot_has_legacy"])
             self.assertFalse(status["saved_has_legacy"])
 
@@ -340,10 +389,10 @@ class ReleaseLayoutTests(unittest.TestCase):
             ROOT / "assets" / "branding" / "keivotos" / "source" / "keivotos-angular-logo.svg"
         ).read_text(encoding="utf-8")
         module_mark = (
-            ROOT / "assets" / "branding" / "waifu-hoard" / "icon.svg"
+            ROOT / "assets" / "branding" / "danbooru" / "icon.svg"
         ).read_text(encoding="utf-8")
         module_profile_mark = (
-            ROOT / "assets" / "branding" / "waifu-hoard" / "profile-avatar.svg"
+            ROOT / "assets" / "branding" / "danbooru" / "profile-avatar.svg"
         ).read_text(encoding="utf-8")
         self.assertIn("Keivotos angular avatar logo", canonical)
         self.assertIn('aria-label="Danbooru"', module_mark)
@@ -370,7 +419,8 @@ class ReleaseLayoutTests(unittest.TestCase):
         self.assertIn(f"export const MODULE_NAME = {MODULE_NAME!r};", frontend_product)
         self.assertIn("export const MODULE_DISPLAY_NAME = MODULE_NAME.replace('-', ' ');", frontend_product)
         self.assertIn("export const DEFAULT_PROFILE_NAME = SUITE_NAME;", frontend_product)
-        self.assertIn("export const STORAGE_PREFIX = 'waifu-hoard:';", frontend_product)
+        self.assertIn("export const STORAGE_PREFIX = 'danbooru:';", frontend_product)
+        self.assertIn("migratePersistedStorage();", frontend_product)
         for component_name in (
             "AppDrawer.svelte",
             "AppSettingsModal.svelte",
@@ -383,7 +433,7 @@ class ReleaseLayoutTests(unittest.TestCase):
             self.assertNotIn(SUITE_NAME, component)
             self.assertNotIn(f"'{MODULE_NAME}'", component)
             self.assertNotIn(f'"{MODULE_NAME}"', component)
-        self.assertNotIn("waifu-hoard:", stores)
+        self.assertNotIn("STORAGE_PREFIX", stores)
         self.assertIn("api.getUserSetting('profile_name')", stores)
         self.assertIn("api.putUserSetting('profile_name'", stores)
 

@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 BRAND_DIR = ROOT / "assets" / "branding" / "keivotos"
 VECTOR_MASTER = BRAND_DIR / "source" / "keivotos-angular-logo.svg"
 RASTER_MASTER = BRAND_DIR / "keivotos-logo.png"
-MODULE_MASTER = ROOT / "assets" / "branding" / "waifu-hoard" / "icon.svg"
-MODULE_PROFILE_MASTER = ROOT / "assets" / "branding" / "waifu-hoard" / "profile-avatar.svg"
+MODULE_MASTER = ROOT / "assets" / "branding" / "danbooru" / "icon.svg"
+MODULE_PROFILE_MASTER = ROOT / "assets" / "branding" / "danbooru" / "profile-avatar.svg"
 PUBLIC_DIR = ROOT / "frontend" / "public"
 PACKAGING_ASSETS = ROOT / "packaging" / "windows" / "assets"
 

@@ -28,6 +28,7 @@ from config import (
 
 
 BACKUP_FORMAT_VERSION = 1
+BACKUP_FORMAT = "danbooru-metadata-backup"
 BACKUP_SUFFIX = ".keivotosbk"
 LEGACY_BACKUP_SUFFIXES = (".whbackup",)
 SUPPORTED_BACKUP_SUFFIXES = (BACKUP_SUFFIX, *LEGACY_BACKUP_SUFFIXES)
@@ -245,7 +246,7 @@ def create_backup_bundle(components: dict[str, Any] | None = None) -> dict[str, 
         # Stage beside the requested backup destination. The metadata source
         # only needs to be readable, and the staging files stay on the same
         # writable volume as the final bundle.
-        with _staging_directory(destination, ".waifu-hoard-backup-staging") as temporary:
+        with _staging_directory(destination, ".danbooru-backup-staging") as temporary:
             staged: dict[str, Path] = {}
             if selected["user_database"]:
                 staged_user = temporary / "user.sqlite"
@@ -257,7 +258,7 @@ def create_backup_bundle(components: dict[str, Any] | None = None) -> dict[str, 
                 staged["library_database"] = staged_library
 
             manifest: dict[str, Any] = {
-                "format": "waifu-hoard-metadata-backup",
+                "format": BACKUP_FORMAT,
                 "format_version": BACKUP_FORMAT_VERSION,
                 "created_at": datetime.now().astimezone().isoformat(),
                 "components": selected,
@@ -308,9 +309,18 @@ def inspect_backup_bundle(path: Path) -> dict[str, Any]:
         if failed:
             raise RuntimeError(f"Backup is corrupt at {failed}")
         manifest = json.loads(archive.read("manifest.json"))
-        if manifest.get("format") != "waifu-hoard-metadata-backup":
+        format_version = int(manifest.get("format_version", 0))
+        format_name = manifest.get("format")
+        compatible_v1 = (
+            format_version == 1
+            and isinstance(format_name, str)
+            and format_name.endswith("-metadata-backup")
+            and isinstance(manifest.get("components"), dict)
+            and isinstance(manifest.get("files"), list)
+        )
+        if format_name != BACKUP_FORMAT and not compatible_v1:
             raise ValueError("Not a Danbooru metadata backup")
-        if int(manifest.get("format_version", 0)) > BACKUP_FORMAT_VERSION:
+        if format_version > BACKUP_FORMAT_VERSION:
             raise ValueError("Backup was created by a newer unsupported format")
         return manifest
 
@@ -362,7 +372,7 @@ def restore_backup_bundle(name: str) -> dict[str, Any]:
         rollback_dir = METADATA_DIR / "local_recovery" / ("restore_" + datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S"))
         rollback_dir.mkdir(parents=True, exist_ok=False)
 
-        with _staging_directory(METADATA_DIR, ".waifu-hoard-restore-staging") as staging:
+        with _staging_directory(METADATA_DIR, ".danbooru-restore-staging") as staging:
             with zipfile.ZipFile(source, "r") as archive:
                 archive.extractall(staging, members=_safe_members(archive))
 

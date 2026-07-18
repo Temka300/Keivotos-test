@@ -201,7 +201,7 @@ class RegressionFixTests(unittest.TestCase):
             text=True,
             capture_output=True,
         )
-        log_files = list((self.temp / "logs").glob("waifu-hoard-runtime-*.log"))
+        log_files = list((self.temp / "logs").glob("danbooru-runtime-*.log"))
         self.assertEqual(result.returncode, 2)
         self.assertIn("Invalid JSON", result.stderr)
         self.assertNotIn("Traceback", result.stderr)
@@ -233,8 +233,8 @@ class RegressionFixTests(unittest.TestCase):
             check=True,
         )
         runtime_name, access_name, storage = json.loads(result.stdout)
-        self.assertRegex(Path(runtime_name).name, r"^waifu-hoard-runtime-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-p\d+\.log$")
-        self.assertRegex(Path(access_name).name, r"^waifu-hoard-access-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-p\d+\.log$")
+        self.assertRegex(Path(runtime_name).name, r"^danbooru-runtime-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-p\d+\.log$")
+        self.assertRegex(Path(access_name).name, r"^danbooru-access-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-p\d+\.log$")
         self.assertEqual(storage["runtime_log_file"], runtime_name)
         self.assertEqual(storage["access_log_file"], access_name)
         self.assertEqual(storage["log_retention_files"], 30)

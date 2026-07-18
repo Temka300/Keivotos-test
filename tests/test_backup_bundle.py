@@ -153,7 +153,7 @@ class MetadataBackupBundleTests(unittest.TestCase):
         self.assertEqual(self.external_image.read_bytes(), b"original-image-must-stay")
         self.assertTrue(Path(restored["rollback_path"]).is_dir())
 
-    def test_legacy_whbackup_bundle_remains_listed_and_restorable(self) -> None:
+    def test_compatibility_backup_suffix_remains_listed_and_restorable(self) -> None:
         created = backup_bundle.create_backup_bundle()
         current = Path(created["path"])
         legacy = current.with_suffix(".whbackup")
@@ -162,7 +162,7 @@ class MetadataBackupBundleTests(unittest.TestCase):
         listed = backup_bundle.list_backups(self.destination)
         self.assertIn(legacy.name, [item["name"] for item in listed])
         inspected = backup_bundle.inspect_backup_bundle(legacy)
-        self.assertEqual(inspected["format"], "waifu-hoard-metadata-backup")
+        self.assertEqual(inspected["format"], "danbooru-metadata-backup")
         restored = backup_bundle.restore_backup_bundle(legacy.name)
         self.assertEqual(restored["name"], legacy.name)
 
