@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Keivotos is a local-first library for exploring, organizing, and rediscovering the files you already own. Instead of opening unrelated folders and applications to find your images, manga, videos, music, documents, social-media archives, and other saved content, Keivotos aims to bring them together in one searchable interface. Your original files remain in their existing folders. Keivotos indexes them in place and presents useful information such as titles, tags, creators, dates, relationships, collections, and available metadata or you can add your own.
+Keivotos is a local-first library that indexes the files you already won. Insterad of opening unrelated folders and applications to find your images, videos, music, documents, social-media archives, mangas, animes, and other saved content. Your original fiels remain in their existing folders. Keivotos only indexes them in place and aims to bring them together in one searchable interface.
 
 ## Supported platforms
 
@@ -19,7 +19,7 @@ Keivotos is a local-first library for exploring, organizing, and rediscovering t
 2. Start `Keivotos.exe`.
 3. Your browser opens at <http://localhost:52325/>.
 
-Keep the console window open — closing it stops the app. If you downloaded a release with a `.sha256` file next to it, you can use it to verify the ZIP.
+If you downloaded a release with a `.sha256` file next to it, you can use it to verify the ZIP.
 
 ### From source
 
@@ -31,14 +31,9 @@ Install [uv](https://docs.astral.sh/uv/) and a current Node.js LTS, then:
 
 The launcher sets up Python 3.11 from `uv.lock`, builds the frontend if needed, and starts the server. Manual commands and dev mode are in [docs/build/source.md](docs/build/source.md).
 
-### First steps in the app
-
-1. Open Settings → Library and register a folder that contains your booru images.
-2. Let the import finish. Files are indexed where they are, nothing is copied.
-
 ## Features
 
-- [x] Booru
+- [x] Danbooru
 - [ ] Add 3D model viewer
 - [ ] Add Images, pdf other filetypes related formats
 - [ ] Add android photos
@@ -58,9 +53,7 @@ The launcher sets up Python 3.11 from `uv.lock`, builds the frontend if needed, 
 
 ## Where your data lives
 
-The application folder is disposable; your data is not. Everything Keivotos writes goes to `%LOCALAPPDATA%\Keivotos`:
-
-Upgrading means replacing the application folder — your library state stays put. Registered media folders are indexed in place and can live anywhere; if you move one, Settings → Library → Relocate reconnects it. Details in [docs/user/data-layout.md](docs/user/data-layout.md).
+Everything Keivotos writes goes to `%LOCALAPPDATA%\Keivotos`:
 
 ## Troubleshooting
 
